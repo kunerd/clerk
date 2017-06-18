@@ -5,6 +5,13 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::iter::Iterator;
 
+// TODO make configurable
+// TODO add optional implementation using the busy flag
+static E_DELAY: u32 = 5;
+const LCD_WIDTH: usize = 16;
+const LCD_LINE_1: u8 = 0x80;
+const LCD_LINE_2: u8 = 0xC0;
+
 pub enum Line {
     One,
     Two,
@@ -47,7 +54,7 @@ bitflags! {
     }
 }
 
-enum LcdMode {
+enum WriteMode {
     Command,
     Data,
 }
@@ -60,11 +67,6 @@ pub struct LcdPins {
     pub data6: u64,
     pub data7: u64,
 }
-
-static E_DELAY: u32 = 5;
-const LCD_WIDTH: usize = 16;
-const LCD_LINE_1: u8 = 0x80;
-const LCD_LINE_2: u8 = 0xC0;
 
 pub struct Lcd<T: LcdHardwareLayer> {
     register_select: T,
@@ -84,8 +86,6 @@ enum LogicLevels {
 pub trait LcdHardwareLayer {
     fn init(&self) {}
     fn cleanup(&self) {}
-
-    // fn set_value(level: LogicLevels) {}
     fn set_value(&self, u8) -> Result<(), ()>;
 }
 
@@ -205,14 +205,14 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         lcd.data7.init();
 
         // Initializing by Instruction
-        lcd.send_byte(0x33, LcdMode::Command);
-        lcd.send_byte(0x32, LcdMode::Command);
+        lcd.send_byte(0x33, WriteMode::Command);
+        lcd.send_byte(0x32, WriteMode::Command);
         // FuctionSet: Data length 4bit + 2 lines
-        lcd.send_byte(0x28, LcdMode::Command);
+        lcd.send_byte(0x28, WriteMode::Command);
         // DisplayControl: Display on, Cursor off + cursor blinking off
-        lcd.send_byte(0x0C, LcdMode::Command);
+        lcd.send_byte(0x0C, WriteMode::Command);
         // EntryModeSet: Cursor move direction inc + no display shift
-        lcd.send_byte(0x06, LcdMode::Command);
+        lcd.send_byte(0x06, WriteMode::Command);
         lcd.clear(); // ClearDisplay
 
         lcd
@@ -224,7 +224,7 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
     {
         let mut builder = EntryModeBuilder::new();
         f(&mut builder);
-        self.send_byte(builder.build_command(), LcdMode::Command);
+        self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
     pub fn set_display_control<F>(&self, f: F)
@@ -233,11 +233,11 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
     {
         let mut builder = DisplayControlBuilder::new();
         f(&mut builder);
-        self.send_byte(builder.build_command(), LcdMode::Command);
+        self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
     pub fn clear(&self) {
-        self.send_byte(CLEAR_DISPLAY.bits(), LcdMode::Command);
+        self.send_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
 
     pub fn set_line(&self, line: Line) {
@@ -246,15 +246,15 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
             Line::Two => LCD_LINE_2,
         };
 
-        self.send_byte(line, LcdMode::Command);
+        self.send_byte(line, WriteMode::Command);
     }
 
-    fn send_byte(&self, value: u8, mode: LcdMode) {
+    fn send_byte(&self, value: u8, mode: WriteMode) {
         let wait_time = Duration::new(0, E_DELAY);
 
         match mode {
-            LcdMode::Data => self.register_select.set_value(1),
-            LcdMode::Command => self.register_select.set_value(0),
+            WriteMode::Data => self.register_select.set_value(1),
+            WriteMode::Command => self.register_select.set_value(0),
         }.unwrap();
 
         self.data4.set_value(0).unwrap();
@@ -308,7 +308,7 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
 
     pub fn send_message(&self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
-            self.send_byte(*c, LcdMode::Data);
+            self.send_byte(*c, WriteMode::Data);
         }
     }
 }

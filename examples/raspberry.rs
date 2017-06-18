@@ -1,11 +1,7 @@
 extern crate sysfs_gpio;
 extern crate hd44780_driver;
 
-use std::thread::sleep;
-use std::time::Duration;
-use std::iter::Iterator;
-
-use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer, MoveDirection};
+use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer};
 
 use sysfs_gpio::{Direction, Pin};
 
