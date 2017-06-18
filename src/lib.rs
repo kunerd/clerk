@@ -37,10 +37,13 @@ bitflags! {
 
 bitflags! {
     struct DisplayControl: u8 {
-        const DISPLAY_OFF   = 0b00000000;
-        const CURSOR_OFF    = 0b00000000;
-        const CURSOR_ON     = 0b00000010;
-        const DISPLAY_ON    = 0b00000100;
+        // FIXME refactor same values
+        const DISPLAY_OFF           = 0b00000000;
+        const CURSOR_OFF            = 0b00000000;
+        const CURSOR_BLINKING_OFF   = 0b00000000;
+        const DISPLAY_ON            = 0b00000100;
+        const CURSOR_ON             = 0b00000010;
+        const CURSOR_BLINKING_ON    = 0b00000001;
     }
 }
 
@@ -72,7 +75,7 @@ pub struct Lcd<T: LcdHardwareLayer> {
     data7: T,
 }
 
-// need a way to let the user set up how levels are interpreted by the hardware
+// TODO need a way to let the user set up how levels are interpreted by the hardware
 enum LogicLevels {
     High,
     Low,
@@ -91,36 +94,30 @@ pub enum MoveDirection {
     Decrement,
 }
 
-pub struct EntryModeBuilder<'a, T>
-    where T: 'a + From<u64> + LcdHardwareLayer
-{
-    lcd: &'a Lcd<T>,
+pub struct EntryModeBuilder {
     move_direction: MoveDirection,
     display_shift: bool,
 }
 
-impl<'a, T> EntryModeBuilder<'a, T>
-    where T: From<u64> + LcdHardwareLayer
-{
-    fn new(lcd: &'a Lcd<T>) -> EntryModeBuilder<T> {
+impl EntryModeBuilder {
+    fn new() -> EntryModeBuilder {
         EntryModeBuilder {
-            lcd,
             move_direction: MoveDirection::Increment,
             display_shift: false,
         }
     }
 
-    pub fn set_move_direction(&mut self, direction: MoveDirection) -> &'a mut EntryModeBuilder<T> {
+    pub fn set_move_direction(&mut self, direction: MoveDirection) -> &mut EntryModeBuilder {
         self.move_direction = direction;
         self
     }
 
-    pub fn set_display_shift(&mut self, shift: bool) -> &'a mut EntryModeBuilder<T> {
+    pub fn set_display_shift(&mut self, shift: bool) -> &mut EntryModeBuilder {
         self.display_shift = shift;
         self
     }
 
-    pub fn run(&self) {
+    fn build_command(&self) -> u8 {
         let mut cmd = ENTRY_MODE.bits();
 
         cmd |= match self.move_direction {
@@ -133,40 +130,41 @@ impl<'a, T> EntryModeBuilder<'a, T>
             false => DISPLAY_SHIFT_DISABLE.bits(),
         };
 
-        self.lcd.send_byte(cmd, LcdMode::Command);
+        cmd
     }
 }
 
-pub struct DisplayControlBuilder<'a, T>
-    where T: 'a + From<u64> + LcdHardwareLayer
-{
-    lcd: &'a Lcd<T>,
+pub struct DisplayControlBuilder {
     display: bool,
     cursor: bool,
+    blink: bool,
 }
 
-impl<'a, T> DisplayControlBuilder<'a, T>
-    where T: From<u64> + LcdHardwareLayer
-{
-    pub fn new(lcd: &'a Lcd<T>) -> DisplayControlBuilder<T> {
+impl DisplayControlBuilder {
+    pub fn new() -> DisplayControlBuilder {
         DisplayControlBuilder {
-            lcd,
             display: true,
             cursor: false,
+            blink: false,
         }
     }
 
-    pub fn set_display(&mut self, status: bool) -> &'a mut DisplayControlBuilder<T> {
+    pub fn set_display(&mut self, status: bool) -> &mut DisplayControlBuilder {
         self.display = status;
         self
     }
 
-    pub fn set_cursor(&mut self, cursor: bool) -> &'a mut DisplayControlBuilder<T> {
+    pub fn set_cursor(&mut self, cursor: bool) -> &mut DisplayControlBuilder {
         self.cursor = cursor;
         self
     }
 
-    pub fn run(&self) {
+    pub fn set_cursor_blinking(&mut self, blink: bool) -> &mut DisplayControlBuilder {
+        self.blink = blink;
+        self
+    }
+
+    fn build_command(&self) -> u8 {
         let mut cmd = DISPLAY_CONTROL.bits();
 
         cmd |= match self.display {
@@ -179,9 +177,12 @@ impl<'a, T> DisplayControlBuilder<'a, T>
             false => CURSOR_OFF.bits(),
         };
 
-        println!("{}", cmd);
+        cmd |= match self.cursor {
+            true => CURSOR_BLINKING_ON.bits(),
+            false => CURSOR_BLINKING_OFF.bits(),
+        };
 
-        self.lcd.send_byte(cmd, LcdMode::Command);
+        cmd
     }
 }
 
@@ -217,12 +218,22 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         lcd
     }
 
-    pub fn set_entry_mode(&self) -> EntryModeBuilder<T> {
-        EntryModeBuilder::new(self)
+    pub fn set_entry_mode<F>(&self, f: F)
+    where
+        F: Fn(&mut EntryModeBuilder),
+    {
+        let mut builder = EntryModeBuilder::new();
+        f(&mut builder);
+        self.send_byte(builder.build_command(), LcdMode::Command);
     }
 
-    pub fn display_control(&self) -> DisplayControlBuilder<T> {
-        DisplayControlBuilder::new(self)
+    pub fn set_display_control<F>(&self, f: F)
+    where
+        F: Fn(&mut DisplayControlBuilder),
+    {
+        let mut builder = DisplayControlBuilder::new();
+        f(&mut builder);
+        self.send_byte(builder.build_command(), LcdMode::Command);
     }
 
     pub fn clear(&self) {
@@ -242,10 +253,9 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         let wait_time = Duration::new(0, E_DELAY);
 
         match mode {
-                LcdMode::Data => self.register_select.set_value(1),
-                LcdMode::Command => self.register_select.set_value(0),
-            }
-            .unwrap();
+            LcdMode::Data => self.register_select.set_value(1),
+            LcdMode::Command => self.register_select.set_value(0),
+        }.unwrap();
 
         self.data4.set_value(0).unwrap();
         self.data5.set_value(0).unwrap();

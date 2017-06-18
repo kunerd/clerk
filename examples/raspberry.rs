@@ -33,7 +33,6 @@ impl LcdHardwareLayer for ExternPin {
 }
 
 fn main() {
-    println!("Start");
     let pins = LcdPins {
         register_select: 2,
         enable: 4,
@@ -45,10 +44,11 @@ fn main() {
 
     let lcd: Lcd<ExternPin> = Lcd::from_pin(pins);
 
-    lcd.display_control()
-        .set_display(true)
-        .set_cursor(true)
-        .run();
+    lcd.set_display_control(|e| {
+        e.set_display(true)
+            .set_cursor(true)
+            .set_cursor_blinking(true);
+    });
 
     lcd.set_line(Line::One);
     lcd.send_message("Hallo");
