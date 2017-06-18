@@ -54,6 +54,13 @@ bitflags! {
     }
 }
 
+bitflags! {
+    struct CursorMove: u8 {
+        const RIGHT = 0b00000100;
+        const LEFT  = 0b00000000;
+    }
+}
+
 enum WriteMode {
     Command,
     Data,
@@ -92,6 +99,14 @@ pub trait LcdHardwareLayer {
 pub enum MoveDirection {
     Increment,
     Decrement,
+}
+
+pub enum MoveFrom {
+    Current {
+        direction: MoveDirection,
+        offset: u64,
+    },
+    // TODO add from start/end
 }
 
 pub struct EntryModeBuilder {
@@ -234,6 +249,25 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         let mut builder = DisplayControlBuilder::new();
         f(&mut builder);
         self.send_byte(builder.build_command(), WriteMode::Command);
+    }
+
+    pub fn move_cursor(&self, pos: MoveFrom) {
+        match pos {
+            MoveFrom::Current { offset, direction } => self.move_from_current(offset, direction),
+        }
+    }
+
+    fn move_from_current(&self, offset: u64, direction: MoveDirection) {
+        let mut cmd = SHIFT.bits();
+
+        cmd |= match direction {
+            MoveDirection::Increment => RIGHT.bits(),
+            MoveDirection::Decrement => LEFT.bits(),
+        };
+
+        for _ in 0..offset {
+            self.send_byte(cmd, WriteMode::Command);
+        }
     }
 
     pub fn clear(&self) {

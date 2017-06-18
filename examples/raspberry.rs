@@ -1,7 +1,7 @@
 extern crate sysfs_gpio;
 extern crate hd44780_driver;
 
-use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer};
+use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer, MoveFrom, MoveDirection};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -46,6 +46,18 @@ fn main() {
             .set_cursor_blinking(true);
     });
 
+
     lcd.set_line(Line::One);
+    lcd.move_cursor(MoveFrom::Current {
+        offset: 2,
+        direction: MoveDirection::Increment,
+    });
+
     lcd.send_message("Hallo");
+
+    lcd.move_cursor(MoveFrom::Current {
+        offset: 4,
+        direction: MoveDirection::Decrement,
+    });
+
 }
