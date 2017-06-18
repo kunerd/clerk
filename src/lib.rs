@@ -101,6 +101,11 @@ pub enum MoveDirection {
     Decrement,
 }
 
+pub enum ShiftTo {
+    Right(u64),
+    Left(u64),
+}
+
 pub enum MoveFrom {
     Current {
         direction: MoveDirection,
@@ -254,6 +259,23 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
     pub fn move_cursor(&self, pos: MoveFrom) {
         match pos {
             MoveFrom::Current { offset, direction } => self.move_from_current(offset, direction),
+        }
+    }
+
+    pub fn shift(&self, direction: ShiftTo) {
+        let mut cmd = SHIFT.bits();
+
+        cmd |= 0b00001000;
+
+        let (offset, direction_bits) = match direction {
+            ShiftTo::Right(offset) => (offset, RIGHT.bits()),
+            ShiftTo::Left(offset) => (offset, LEFT.bits()),
+        };
+
+        cmd |= direction_bits;
+
+        for _ in 0..offset {
+            self.send_byte(cmd, WriteMode::Command);
         }
     }
 
