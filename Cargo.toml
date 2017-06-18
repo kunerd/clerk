@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Hendrik Kunert <hendrik.kunert@henku.de>"]
 
 [dependencies]
+bitflags = "0.9"
 
 [dev-dependencies]
 sysfs_gpio = "0.5"

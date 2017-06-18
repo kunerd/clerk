@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate bitflags;
+
 use std::thread::sleep;
 use std::time::Duration;
 use std::iter::Iterator;
@@ -5,6 +8,40 @@ use std::iter::Iterator;
 pub enum Line {
     One,
     Two,
+}
+
+bitflags! {
+    struct Instructions: u8 {
+        const CLEAR_DISPLAY     = 0b00000001;
+        const RETURN_HOME       = 0b00000010;
+        const ENTRY_MODE        = 0b00000100;
+        const DISPLAY_CONTROL   = 0b00001000;
+        const SHIFT             = 0b00010000;
+        const FUNCTION_SET      = 0b00100000;
+    }
+}
+
+bitflags! {
+    struct CursorMoveDirection: u8 {
+        const CURSOR_MOVE_DECREMENT = 0b00000000;
+        const CURSOR_MOVE_INCREMENT = 0b00000010;
+    }
+}
+
+bitflags! {
+    struct DisplayShift: u8 {
+        const DISPLAY_SHIFT_DISABLE = 0b00000000;
+        const DISPLAY_SHIFT_ENABLE  = 0b00000001;
+    }
+}
+
+bitflags! {
+    struct DisplayControl: u8 {
+        const DISPLAY_OFF   = 0b00000000;
+        const CURSOR_OFF    = 0b00000000;
+        const CURSOR_ON     = 0b00000010;
+        const DISPLAY_ON    = 0b00000100;
+    }
 }
 
 enum LcdMode {
@@ -26,7 +63,7 @@ const LCD_WIDTH: usize = 16;
 const LCD_LINE_1: u8 = 0x80;
 const LCD_LINE_2: u8 = 0xC0;
 
-pub struct Lcd<T: LcdHardwareLayer + LcdHardwareLayerCleanup> {
+pub struct Lcd<T: LcdHardwareLayer> {
     register_select: T,
     enable: T,
     data4: T,
@@ -35,24 +72,120 @@ pub struct Lcd<T: LcdHardwareLayer + LcdHardwareLayerCleanup> {
     data7: T,
 }
 
+// need a way to let the user set up how levels are interpreted by the hardware
 enum LogicLevels {
     High,
     Low,
 }
 
 pub trait LcdHardwareLayer {
-    fn init(&self) where Self: LcdHardwareLayerCleanup {}
-    // fn cleanup(&self) {}
+    fn init(&self) {}
+    fn cleanup(&self) {}
 
     // fn set_value(level: LogicLevels) {}
     fn set_value(&self, u8) -> Result<(), ()>;
 }
 
-pub trait LcdHardwareLayerCleanup {
-    fn cleanup(&self) {}
+pub enum MoveDirection {
+    Increment,
+    Decrement,
 }
 
-impl<T: From<u64> + LcdHardwareLayer + LcdHardwareLayerCleanup> Lcd<T> {
+pub struct EntryModeBuilder<'a, T>
+    where T: 'a + From<u64> + LcdHardwareLayer
+{
+    lcd: &'a Lcd<T>,
+    move_direction: MoveDirection,
+    display_shift: bool,
+}
+
+impl<'a, T> EntryModeBuilder<'a, T>
+    where T: From<u64> + LcdHardwareLayer
+{
+    fn new(lcd: &'a Lcd<T>) -> EntryModeBuilder<T> {
+        EntryModeBuilder {
+            lcd,
+            move_direction: MoveDirection::Increment,
+            display_shift: false,
+        }
+    }
+
+    pub fn set_move_direction(&mut self, direction: MoveDirection) -> &'a mut EntryModeBuilder<T> {
+        self.move_direction = direction;
+        self
+    }
+
+    pub fn set_display_shift(&mut self, shift: bool) -> &'a mut EntryModeBuilder<T> {
+        self.display_shift = shift;
+        self
+    }
+
+    pub fn run(&self) {
+        let mut cmd = ENTRY_MODE.bits();
+
+        cmd |= match self.move_direction {
+            MoveDirection::Increment => CURSOR_MOVE_INCREMENT.bits(),
+            MoveDirection::Decrement => CURSOR_MOVE_DECREMENT.bits(),
+        };
+
+        cmd |= match self.display_shift {
+            true => DISPLAY_SHIFT_ENABLE.bits(),
+            false => DISPLAY_SHIFT_DISABLE.bits(),
+        };
+
+        self.lcd.send_byte(cmd, LcdMode::Command);
+    }
+}
+
+pub struct DisplayControlBuilder<'a, T>
+    where T: 'a + From<u64> + LcdHardwareLayer
+{
+    lcd: &'a Lcd<T>,
+    display: bool,
+    cursor: bool,
+}
+
+impl<'a, T> DisplayControlBuilder<'a, T>
+    where T: From<u64> + LcdHardwareLayer
+{
+    pub fn new(lcd: &'a Lcd<T>) -> DisplayControlBuilder<T> {
+        DisplayControlBuilder {
+            lcd,
+            display: true,
+            cursor: false,
+        }
+    }
+
+    pub fn set_display(&mut self, status: bool) -> &'a mut DisplayControlBuilder<T> {
+        self.display = status;
+        self
+    }
+
+    pub fn set_cursor(&mut self, cursor: bool) -> &'a mut DisplayControlBuilder<T> {
+        self.cursor = cursor;
+        self
+    }
+
+    pub fn run(&self) {
+        let mut cmd = DISPLAY_CONTROL.bits();
+
+        cmd |= match self.display {
+            true => DISPLAY_ON.bits(),
+            false => DISPLAY_OFF.bits(),
+        };
+
+        cmd |= match self.cursor {
+            true => CURSOR_ON.bits(),
+            false => CURSOR_OFF.bits(),
+        };
+
+        println!("{}", cmd);
+
+        self.lcd.send_byte(cmd, LcdMode::Command);
+    }
+}
+
+impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
     pub fn from_pin(pins: LcdPins) -> Lcd<T> {
         let lcd = Lcd {
             register_select: T::from(pins.register_select),
@@ -70,14 +203,30 @@ impl<T: From<u64> + LcdHardwareLayer + LcdHardwareLayerCleanup> Lcd<T> {
         lcd.data6.init();
         lcd.data7.init();
 
+        // Initializing by Instruction
         lcd.send_byte(0x33, LcdMode::Command);
         lcd.send_byte(0x32, LcdMode::Command);
+        // FuctionSet: Data length 4bit + 2 lines
         lcd.send_byte(0x28, LcdMode::Command);
+        // DisplayControl: Display on, Cursor off + cursor blinking off
         lcd.send_byte(0x0C, LcdMode::Command);
+        // EntryModeSet: Cursor move direction inc + no display shift
         lcd.send_byte(0x06, LcdMode::Command);
-        lcd.send_byte(0x01, LcdMode::Command);
+        lcd.clear(); // ClearDisplay
 
         lcd
+    }
+
+    pub fn set_entry_mode(&self) -> EntryModeBuilder<T> {
+        EntryModeBuilder::new(self)
+    }
+
+    pub fn display_control(&self) -> DisplayControlBuilder<T> {
+        DisplayControlBuilder::new(self)
+    }
+
+    pub fn clear(&self) {
+        self.send_byte(CLEAR_DISPLAY.bits(), LcdMode::Command);
     }
 
     pub fn set_line(&self, line: Line) {
@@ -154,7 +303,7 @@ impl<T: From<u64> + LcdHardwareLayer + LcdHardwareLayerCleanup> Lcd<T> {
     }
 }
 
-impl<T: LcdHardwareLayer + LcdHardwareLayerCleanup> Drop for Lcd<T> {
+impl<T: LcdHardwareLayer> Drop for Lcd<T> {
     fn drop(&mut self) {
         self.register_select.cleanup();
         self.enable.cleanup();

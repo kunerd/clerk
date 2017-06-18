@@ -5,7 +5,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::iter::Iterator;
 
-use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer, LcdHardwareLayerCleanup};
+use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer, MoveDirection};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -18,21 +18,19 @@ impl From<u64> for ExternPin {
 }
 
 impl LcdHardwareLayer for ExternPin {
-    // fn init(&self) {
-    //     self.0.export().unwrap();
-    //     self.0.set_direction(Direction::Out).unwrap();
-    // }
-    //
-    // fn cleanup(&self) {
-    //     self.0.unexport().unwrap();
-    // }
+    fn init(&self) {
+        self.0.export().unwrap();
+        self.0.set_direction(Direction::Out).unwrap();
+    }
+
+    fn cleanup(&self) {
+        self.0.unexport().unwrap();
+    }
 
     fn set_value(&self, value: u8) -> Result<(), ()> {
         self.0.set_value(value).map_err(|_| ())
     }
 }
-
-impl LcdHardwareLayerCleanup for ExternPin {}
 
 fn main() {
     println!("Start");
@@ -46,6 +44,11 @@ fn main() {
     };
 
     let lcd: Lcd<ExternPin> = Lcd::from_pin(pins);
+
+    lcd.display_control()
+        .set_display(true)
+        .set_cursor(true)
+        .run();
 
     lcd.set_line(Line::One);
     lcd.send_message("Hallo");
