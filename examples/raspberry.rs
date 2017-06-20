@@ -1,7 +1,7 @@
 extern crate sysfs_gpio;
-extern crate hd44780_driver;
+extern crate clerk;
 
-use hd44780_driver::{Line, Lcd, LcdPins, LcdHardwareLayer, MoveFrom, MoveDirection, ShiftTo};
+use clerk::{Line, Display, DisplayPins, DisplayHardwareLayer, MoveFrom, MoveDirection, ShiftTo};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -13,7 +13,7 @@ impl From<u64> for ExternPin {
     }
 }
 
-impl LcdHardwareLayer for ExternPin {
+impl DisplayHardwareLayer for ExternPin {
     fn init(&self) {
         self.0.export().unwrap();
         self.0.set_direction(Direction::Out).unwrap();
@@ -29,7 +29,7 @@ impl LcdHardwareLayer for ExternPin {
 }
 
 fn main() {
-    let pins = LcdPins {
+    let pins = DisplayPins {
         register_select: 2,
         enable: 4,
         data4: 16,
@@ -38,7 +38,7 @@ fn main() {
         data7: 20,
     };
 
-    let lcd: Lcd<ExternPin> = Lcd::from_pin(pins);
+    let lcd: Display<ExternPin> = Display::from_pins(pins);
 
     lcd.set_display_control(|e| {
         e.set_display(true)
@@ -52,14 +52,14 @@ fn main() {
         offset: 2,
         direction: MoveDirection::Increment,
     });
-    lcd.send_message("Hallo");
+    lcd.write_message("Hallo");
 
     lcd.set_line(Line::Two);
     lcd.move_cursor(MoveFrom::Current {
         offset: 2,
         direction: MoveDirection::Increment,
     });
-    lcd.send_message("du");
+    lcd.write_message("du");
 
     lcd.move_cursor(MoveFrom::Current {
         offset: 2,

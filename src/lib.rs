@@ -1,3 +1,7 @@
+//! # Clerk
+//!
+//! Clerk is a generic and hardware agnostic libary to controll HD44780 compliant LCD displays.
+
 #[macro_use]
 extern crate bitflags;
 
@@ -66,7 +70,7 @@ enum WriteMode {
     Data,
 }
 
-pub struct LcdPins {
+pub struct DisplayPins {
     pub register_select: u64,
     pub enable: u64,
     pub data4: u64,
@@ -74,8 +78,11 @@ pub struct LcdPins {
     pub data6: u64,
     pub data7: u64,
 }
-
-pub struct Lcd<T: LcdHardwareLayer> {
+/// A HD44780 compliant display.
+///
+/// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
+/// liquid crystal display (LCD).
+pub struct Display<T: DisplayHardwareLayer> {
     register_select: T,
     enable: T,
     data4: T,
@@ -83,43 +90,62 @@ pub struct Lcd<T: LcdHardwareLayer> {
     data6: T,
     data7: T,
 }
-
-// TODO need a way to let the user set up how levels are interpreted by the hardware
-enum LogicLevels {
-    High,
-    Low,
-}
-
-pub trait LcdHardwareLayer {
+/// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
+/// wrapper around the hardware specific system calls.
+pub trait DisplayHardwareLayer {
+    /// Initializes an I/O pin.
     fn init(&self) {}
+    /// Cleanup an I/O pin.
     fn cleanup(&self) {}
+    /// Sets a value on an I/O pin.
+    // TODO need a way to let the user set up how levels are interpreted by the hardware
     fn set_value(&self, u8) -> Result<(), ()>;
 }
 
+/// Enumeration of possible methods to move.
 pub enum MoveDirection {
+    // TODO rename to right, left
+    /// Moves right.
     Increment,
+    /// Moves left.
     Decrement,
 }
 
+/// Enumeration of possible methods to shift a display.
 pub enum ShiftTo {
+    /// Shifts to the right by the given offset.
     Right(u64),
+    /// Shifts to the left by the given offset.
     Left(u64),
 }
 
+/// Enumeration of possible methods to move the cursor of a display.
 pub enum MoveFrom {
+    /// Moves the cursor to the given direction by the offset.
     Current {
+        /// The direction to move to.
         direction: MoveDirection,
+        /// The offset the cursor will be moved.
         offset: u64,
     },
     // TODO add from start/end
 }
 
+/// A struct for creating display entry mode settings.
 pub struct EntryModeBuilder {
     move_direction: MoveDirection,
     display_shift: bool,
 }
 
 impl EntryModeBuilder {
+    /// Make a new `EntryModeBuilder` with the default settings described below.
+    ///
+    /// The default settings are:
+    ///
+    ///  - **move direction:**
+    ///     - `Increment`
+    ///  - **display_shift:**
+    ///     - `Off`
     fn new() -> EntryModeBuilder {
         EntryModeBuilder {
             move_direction: MoveDirection::Increment,
@@ -127,11 +153,19 @@ impl EntryModeBuilder {
         }
     }
 
+    /// Sets the direction the read/write cursor is moved when a character code is written to or
+    /// read from the display.
     pub fn set_move_direction(&mut self, direction: MoveDirection) -> &mut EntryModeBuilder {
         self.move_direction = direction;
         self
     }
 
+    /// Sets the display shift, which will be on character write, either `On` or `Off`.
+    ///
+    /// If display shift is enabled, it will seem as if the cursor does not move but the display
+    /// does.
+    ///
+    /// **Note:** The display does not shift when reading.
     pub fn set_display_shift(&mut self, shift: bool) -> &mut EntryModeBuilder {
         self.display_shift = shift;
         self
@@ -154,13 +188,25 @@ impl EntryModeBuilder {
     }
 }
 
+/// A struct for creating display control settings.
 pub struct DisplayControlBuilder {
+    // FIXME use enum instead of bool
     display: bool,
     cursor: bool,
     blink: bool,
 }
 
 impl DisplayControlBuilder {
+    /// Makes a new `DisplayControlBuilder` using the default settings described below.
+    ///
+    /// The default settings are:
+    ///
+    ///  - **display:**
+    ///     - `On`
+    ///  - **cursor:**
+    ///     - `Off`
+    ///  - **blinking of cursor:**
+    ///     - `Off`
     pub fn new() -> DisplayControlBuilder {
         DisplayControlBuilder {
             display: true,
@@ -169,16 +215,27 @@ impl DisplayControlBuilder {
         }
     }
 
+    /// Sets the entire display `On` or `Off`.
+    ///
+    /// Default is `On`.
     pub fn set_display(&mut self, status: bool) -> &mut DisplayControlBuilder {
         self.display = status;
         self
     }
 
+    /// Sets the cursor `On` or `Off`.
+    ///
+    /// Default is `Off`.
+    ///
+    /// **Note:** This will not change cursor move direction or any other settings.
     pub fn set_cursor(&mut self, cursor: bool) -> &mut DisplayControlBuilder {
         self.cursor = cursor;
         self
     }
 
+    /// Sets the blinking of the cursor `On` of `Off`.
+    ///
+    /// Default is `Off`.
     pub fn set_cursor_blinking(&mut self, blink: bool) -> &mut DisplayControlBuilder {
         self.blink = blink;
         self
@@ -206,9 +263,10 @@ impl DisplayControlBuilder {
     }
 }
 
-impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
-    pub fn from_pin(pins: LcdPins) -> Lcd<T> {
-        let lcd = Lcd {
+impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
+    /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
+    pub fn from_pins(pins: DisplayPins) -> Display<T> {
+        let lcd = Display {
             register_select: T::from(pins.register_select),
             enable: T::from(pins.enable),
             data4: T::from(pins.data4),
@@ -238,6 +296,7 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         lcd
     }
 
+    /// Sets the entry mode of the display using the builder given in the closure.
     pub fn set_entry_mode<F>(&self, f: F)
     where
         F: Fn(&mut EntryModeBuilder),
@@ -247,6 +306,7 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
+    /// Sets the display control settings using the builder given in the closure.
     pub fn set_display_control<F>(&self, f: F)
     where
         F: Fn(&mut DisplayControlBuilder),
@@ -256,12 +316,32 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
+    /// Moves the cursor to the left or the right by the given offset.
     pub fn move_cursor(&self, pos: MoveFrom) {
         match pos {
             MoveFrom::Current { offset, direction } => self.move_from_current(offset, direction),
         }
     }
 
+    fn move_from_current(&self, offset: u64, direction: MoveDirection) {
+        let mut cmd = SHIFT.bits();
+
+        cmd |= match direction {
+            MoveDirection::Increment => RIGHT.bits(),
+            MoveDirection::Decrement => LEFT.bits(),
+        };
+
+        for _ in 0..offset {
+            self.send_byte(cmd, WriteMode::Command);
+        }
+    }
+
+    /// Shifts the display to the right or the left by the given offset.
+    ///
+    /// Note that the first and second line will shift at the same time.
+    ///
+    /// When the displayed data is shifted repeatedly each line moves only horizontally.
+    /// The second line display does not shift into the first line position.
     pub fn shift(&self, direction: ShiftTo) {
         let mut cmd = SHIFT.bits();
 
@@ -279,19 +359,10 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         }
     }
 
-    fn move_from_current(&self, offset: u64, direction: MoveDirection) {
-        let mut cmd = SHIFT.bits();
-
-        cmd |= match direction {
-            MoveDirection::Increment => RIGHT.bits(),
-            MoveDirection::Decrement => LEFT.bits(),
-        };
-
-        for _ in 0..offset {
-            self.send_byte(cmd, WriteMode::Command);
-        }
-    }
-
+    /// Clears the entire display, sets the cursor to the home position and undo all display
+    /// shifts.
+    ///
+    /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&self) {
         self.send_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
@@ -362,14 +433,15 @@ impl<T: From<u64> + LcdHardwareLayer> Lcd<T> {
         sleep(wait_time);
     }
 
-    pub fn send_message(&self, msg: &str) {
+    /// Writes the given message on the display, starting from the current cursor position.
+    pub fn write_message(&self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
             self.send_byte(*c, WriteMode::Data);
         }
     }
 }
 
-impl<T: LcdHardwareLayer> Drop for Lcd<T> {
+impl<T: DisplayHardwareLayer> Drop for Display<T> {
     fn drop(&mut self) {
         self.register_select.cleanup();
         self.enable.cleanup();

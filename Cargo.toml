@@ -1,5 +1,5 @@
 [package]
-name = "hd44780-driver"
+name = "clerk"
 version = "0.1.0"
 authors = ["Hendrik Kunert <hendrik.kunert@henku.de>"]
 
