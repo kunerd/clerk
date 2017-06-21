@@ -29,11 +29,12 @@ bitflags! {
         const DISPLAY_CONTROL   = 0b00001000;
         const SHIFT             = 0b00010000;
         const FUNCTION_SET      = 0b00100000;
+        const SET_DDRAM         = 0b10000000;
     }
 }
 
 bitflags! {
-    struct CursorMoveDirection: u8 {
+    struct ShiftDirectionDirection: u8 {
         const CURSOR_MOVE_DECREMENT = 0b00000000;
         const CURSOR_MOVE_INCREMENT = 0b00000010;
     }
@@ -59,7 +60,14 @@ bitflags! {
 }
 
 bitflags! {
-    struct CursorMove: u8 {
+    struct ShiftTarget: u8 {
+        const CURSOR  = 0b00000000;
+        const DISPLAY = 0b00001000;
+    }
+}
+
+bitflags! {
+    struct ShiftDirection: u8 {
         const RIGHT = 0b00000100;
         const LEFT  = 0b00000000;
     }
@@ -111,24 +119,21 @@ pub enum MoveDirection {
     Decrement,
 }
 
-/// Enumeration of possible methods to shift a display.
+/// Enumeration of possible methods to shift a cursor or display.
 pub enum ShiftTo {
     /// Shifts to the right by the given offset.
-    Right(u64),
+    Right(u8),
     /// Shifts to the left by the given offset.
-    Left(u64),
+    Left(u8),
 }
 
-/// Enumeration of possible methods to move the cursor of a display.
-pub enum MoveFrom {
-    /// Moves the cursor to the given direction by the offset.
-    Current {
-        /// The direction to move to.
-        direction: MoveDirection,
-        /// The offset the cursor will be moved.
-        offset: u64,
-    },
-    // TODO add from start/end
+impl ShiftTo {
+    fn into_offset_and_raw_direction(&self) -> (u8, ShiftDirection) {
+        match *self {
+            ShiftTo::Right(offset) => (offset, RIGHT),
+            ShiftTo::Left(offset) => (offset, LEFT),
+        }
+    }
 }
 
 /// A struct for creating display entry mode settings.
@@ -316,24 +321,12 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
         self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
-    /// Moves the cursor to the left or the right by the given offset.
-    pub fn move_cursor(&self, pos: MoveFrom) {
-        match pos {
-            MoveFrom::Current { offset, direction } => self.move_from_current(offset, direction),
-        }
-    }
+    /// Shifts the cursor to the left or the right by the given offset.
+    // TODO add note that this is slow and seek to is prefered
+    pub fn shift_cursor(&self, direction: ShiftTo) {
+        let (offset, raw_direction) = direction.into_offset_and_raw_direction();
 
-    fn move_from_current(&self, offset: u64, direction: MoveDirection) {
-        let mut cmd = SHIFT.bits();
-
-        cmd |= match direction {
-            MoveDirection::Increment => RIGHT.bits(),
-            MoveDirection::Decrement => LEFT.bits(),
-        };
-
-        for _ in 0..offset {
-            self.send_byte(cmd, WriteMode::Command);
-        }
+        self.raw_shift(CURSOR, offset, raw_direction);
     }
 
     /// Shifts the display to the right or the left by the given offset.
@@ -343,16 +336,16 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     /// When the displayed data is shifted repeatedly each line moves only horizontally.
     /// The second line display does not shift into the first line position.
     pub fn shift(&self, direction: ShiftTo) {
+        let (offset, raw_direction) = direction.into_offset_and_raw_direction();
+
+        self.raw_shift(DISPLAY, offset, raw_direction);
+    }
+
+    fn raw_shift(&self, shift_type: ShiftTarget, offset: u8, raw_direction: ShiftDirection) {
         let mut cmd = SHIFT.bits();
 
-        cmd |= 0b00001000;
-
-        let (offset, direction_bits) = match direction {
-            ShiftTo::Right(offset) => (offset, RIGHT.bits()),
-            ShiftTo::Left(offset) => (offset, LEFT.bits()),
-        };
-
-        cmd |= direction_bits;
+        cmd |= shift_type.bits();
+        cmd |= raw_direction.bits();
 
         for _ in 0..offset {
             self.send_byte(cmd, WriteMode::Command);

@@ -1,7 +1,7 @@
 extern crate sysfs_gpio;
 extern crate clerk;
 
-use clerk::{Line, Display, DisplayPins, DisplayHardwareLayer, MoveFrom, MoveDirection, ShiftTo};
+use clerk::{Line, Display, DisplayPins, DisplayHardwareLayer, ShiftTo};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -48,23 +48,13 @@ fn main() {
 
 
     lcd.set_line(Line::One);
-    lcd.move_cursor(MoveFrom::Current {
-        offset: 2,
-        direction: MoveDirection::Increment,
-    });
+    lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("Hallo");
 
     lcd.set_line(Line::Two);
-    lcd.move_cursor(MoveFrom::Current {
-        offset: 2,
-        direction: MoveDirection::Increment,
-    });
+    lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("du");
-
-    lcd.move_cursor(MoveFrom::Current {
-        offset: 2,
-        direction: MoveDirection::Decrement,
-    });
+    lcd.shift_cursor(ShiftTo::Left(2));
 
     lcd.shift(ShiftTo::Right(4));
 }
