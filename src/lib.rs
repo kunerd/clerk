@@ -13,13 +13,8 @@ use std::iter::Iterator;
 // TODO add optional implementation using the busy flag
 static E_DELAY: u32 = 5;
 const LCD_WIDTH: usize = 16;
-const LCD_LINE_1: u8 = 0x80;
-const LCD_LINE_2: u8 = 0xC0;
-
-pub enum Line {
-    One,
-    Two,
-}
+const FIRST_LINE_ADDRESS: u8 = 0x00;
+const SECOND_LINE_ADDRESS: u8 = 0x40;
 
 bitflags! {
     struct Instructions: u8 {
@@ -86,6 +81,7 @@ pub struct DisplayPins {
     pub data6: u64,
     pub data7: u64,
 }
+
 /// A HD44780 compliant display.
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
@@ -97,6 +93,7 @@ pub struct Display<T: DisplayHardwareLayer> {
     data5: T,
     data6: T,
     data7: T,
+    cursor_address: u8,
 }
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
 /// wrapper around the hardware specific system calls.
@@ -132,6 +129,60 @@ impl ShiftTo {
         match *self {
             ShiftTo::Right(offset) => (offset, RIGHT),
             ShiftTo::Left(offset) => (offset, LEFT),
+        }
+    }
+}
+
+enum InnerSeekFrom {
+    Home(u8),
+    Current(u8),
+    Line { address: u8, bytes: u8 },
+}
+
+/// Enumeration like struct of possible methods to seek within a `Display` object.
+pub struct SeekFrom(InnerSeekFrom);
+
+impl SeekFrom {
+    /// Sets the cursor position to `Home` plus the provided number of bytes.
+    pub fn home(bytes: u8) -> SeekFrom {
+        SeekFrom(InnerSeekFrom::Home(bytes))
+    }
+
+    /// Sets the cursor to the current position plus the specified number of bytes.
+    pub fn current(bytes: u8) -> SeekFrom {
+        SeekFrom(InnerSeekFrom::Current(bytes))
+    }
+
+    /// Sets the cursor position to the provides line plus the specified number of bytes.
+    pub fn line<T>(line: T, bytes: u8) -> SeekFrom
+    where
+        T: Addressable,
+    {
+        SeekFrom(InnerSeekFrom::Line {
+            address: line.address(),
+            bytes,
+        })
+    }
+}
+
+/// The `Addressable` trait provides a hardware address for a type.
+pub trait Addressable {
+    /// Returns the address of the type.
+    fn address(&self) -> u8;
+}
+
+/// Enumeration of default lines.
+pub enum DefaultLines {
+    One,
+    Two,
+}
+
+impl Addressable for DefaultLines {
+    /// Returns the hardware address of the line.
+    fn address(&self) -> u8 {
+        match *self {
+            DefaultLines::One => FIRST_LINE_ADDRESS,
+            DefaultLines::Two => SECOND_LINE_ADDRESS,
         }
     }
 }
@@ -278,6 +329,7 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
             data5: T::from(pins.data5),
             data6: T::from(pins.data6),
             data7: T::from(pins.data7),
+            cursor_address: 0,
         };
 
         lcd.register_select.init();
@@ -322,9 +374,15 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
-    // TODO add note that this is slow and seek to is prefered
-    pub fn shift_cursor(&self, direction: ShiftTo) {
+    ///
+    /// **Note:** Consider to use [seek()](struct.Display.html#method.seek) for longer distances.
+    pub fn shift_cursor(&mut self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.into_offset_and_raw_direction();
+
+        match direction {
+            ShiftTo::Right(offset) => self.cursor_address += offset,
+            ShiftTo::Left(offset) => self.cursor_address -= offset,
+        }
 
         self.raw_shift(CURSOR, offset, raw_direction);
     }
@@ -360,13 +418,21 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
         self.send_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
 
-    pub fn set_line(&self, line: Line) {
-        let line = match line {
-            Line::One => LCD_LINE_1,
-            Line::Two => LCD_LINE_2,
+    /// Seeks to an offset in display data RAM.
+    pub fn seek(&mut self, pos: SeekFrom) {
+        let mut cmd = SET_DDRAM.bits();
+
+        let (start, bytes) = match pos.0 {
+            InnerSeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
+            InnerSeekFrom::Current(bytes) => (self.cursor_address, bytes),
+            InnerSeekFrom::Line { address, bytes } => (address, bytes),
         };
 
-        self.send_byte(line, WriteMode::Command);
+        self.cursor_address = start + bytes;
+
+        cmd |= self.cursor_address;
+
+        self.send_byte(cmd, WriteMode::Command);
     }
 
     fn send_byte(&self, value: u8, mode: WriteMode) {
@@ -427,8 +493,9 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     }
 
     /// Writes the given message on the display, starting from the current cursor position.
-    pub fn write_message(&self, msg: &str) {
+    pub fn write_message(&mut self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
+            self.cursor_address += 1;
             self.send_byte(*c, WriteMode::Data);
         }
     }

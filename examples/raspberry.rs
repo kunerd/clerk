@@ -1,7 +1,7 @@
 extern crate sysfs_gpio;
 extern crate clerk;
 
-use clerk::{Line, Display, DisplayPins, DisplayHardwareLayer, ShiftTo};
+use clerk::{SeekFrom, Display, DisplayPins, DisplayHardwareLayer, ShiftTo, DefaultLines};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -38,7 +38,7 @@ fn main() {
         data7: 20,
     };
 
-    let lcd: Display<ExternPin> = Display::from_pins(pins);
+    let mut lcd: Display<ExternPin> = Display::from_pins(pins);
 
     lcd.set_display_control(|e| {
         e.set_display(true)
@@ -47,14 +47,16 @@ fn main() {
     });
 
 
-    lcd.set_line(Line::One);
+    lcd.seek(SeekFrom::line(DefaultLines::One, 0));
     lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("Hallo");
 
-    lcd.set_line(Line::Two);
+    lcd.seek(SeekFrom::line(DefaultLines::Two, 0));
     lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("du");
     lcd.shift_cursor(ShiftTo::Left(2));
 
     lcd.shift(ShiftTo::Right(4));
+
+    lcd.seek(SeekFrom::current(5));
 }
