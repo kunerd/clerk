@@ -2,6 +2,16 @@
 name = "clerk"
 version = "0.1.0"
 authors = ["Hendrik Kunert <hendrik.kunert@henku.de>"]
+description = "A hardware agnostic HD44780 LCD controlling library."
+documentation = "https://docs.rs/clerk"
+repository = "https://github.com/kunerd/clerk"
+readme = "README.md"
+keywords = ["hd44780", "lcd"]
+categories = ["embedded"]
+license = "MIT"
+
+[badges]
+travis-ci = { repository = "kunerd/clerk", branch = "master" }
 
 [dependencies]
 bitflags = "0.9"
