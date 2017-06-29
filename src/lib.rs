@@ -125,7 +125,7 @@ pub enum ShiftTo {
 }
 
 impl ShiftTo {
-    fn into_offset_and_raw_direction(&self) -> (u8, ShiftDirection) {
+    fn as_offset_and_raw_direction(&self) -> (u8, ShiftDirection) {
         match *self {
             ShiftTo::Right(offset) => (offset, RIGHT),
             ShiftTo::Left(offset) => (offset, LEFT),
@@ -235,15 +235,17 @@ impl EntryModeBuilder {
             MoveDirection::Decrement => CURSOR_MOVE_DECREMENT.bits(),
         };
 
-        cmd |= match self.display_shift {
-            true => DISPLAY_SHIFT_ENABLE.bits(),
-            false => DISPLAY_SHIFT_DISABLE.bits(),
+        cmd |= if self.display_shift {
+            DISPLAY_SHIFT_ENABLE.bits()
+        } else {
+            DISPLAY_SHIFT_DISABLE.bits()
         };
 
         cmd
     }
 }
 
+#[derive(Default)]
 /// A struct for creating display control settings.
 pub struct DisplayControlBuilder {
     // FIXME use enum instead of bool
@@ -300,19 +302,22 @@ impl DisplayControlBuilder {
     fn build_command(&self) -> u8 {
         let mut cmd = DISPLAY_CONTROL.bits();
 
-        cmd |= match self.display {
-            true => DISPLAY_ON.bits(),
-            false => DISPLAY_OFF.bits(),
+        cmd |= if self.display {
+            DISPLAY_ON.bits()
+        } else {
+            DISPLAY_OFF.bits()
         };
 
-        cmd |= match self.cursor {
-            true => CURSOR_ON.bits(),
-            false => CURSOR_OFF.bits(),
+        cmd |= if self.cursor {
+            CURSOR_ON.bits()
+        } else {
+            CURSOR_OFF.bits()
         };
 
-        cmd |= match self.cursor {
-            true => CURSOR_BLINKING_ON.bits(),
-            false => CURSOR_BLINKING_OFF.bits(),
+        cmd |= if self.cursor {
+            CURSOR_BLINKING_ON.bits()
+        } else {
+            CURSOR_BLINKING_OFF.bits()
         };
 
         cmd
@@ -377,7 +382,7 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     ///
     /// **Note:** Consider to use [seek()](struct.Display.html#method.seek) for longer distances.
     pub fn shift_cursor(&mut self, direction: ShiftTo) {
-        let (offset, raw_direction) = direction.into_offset_and_raw_direction();
+        let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
         match direction {
             ShiftTo::Right(offset) => self.cursor_address += offset,
@@ -394,7 +399,7 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     /// When the displayed data is shifted repeatedly each line moves only horizontally.
     /// The second line display does not shift into the first line position.
     pub fn shift(&self, direction: ShiftTo) {
-        let (offset, raw_direction) = direction.into_offset_and_raw_direction();
+        let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
         self.raw_shift(DISPLAY, offset, raw_direction);
     }
