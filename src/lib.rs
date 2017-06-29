@@ -13,13 +13,8 @@ use std::iter::Iterator;
 // TODO add optional implementation using the busy flag
 static E_DELAY: u32 = 5;
 const LCD_WIDTH: usize = 16;
-const LCD_LINE_1: u8 = 0x80;
-const LCD_LINE_2: u8 = 0xC0;
-
-pub enum Line {
-    One,
-    Two,
-}
+const FIRST_LINE_ADDRESS: u8 = 0x00;
+const SECOND_LINE_ADDRESS: u8 = 0x40;
 
 bitflags! {
     struct Instructions: u8 {
@@ -29,11 +24,12 @@ bitflags! {
         const DISPLAY_CONTROL   = 0b00001000;
         const SHIFT             = 0b00010000;
         const FUNCTION_SET      = 0b00100000;
+        const SET_DDRAM         = 0b10000000;
     }
 }
 
 bitflags! {
-    struct CursorMoveDirection: u8 {
+    struct ShiftDirectionDirection: u8 {
         const CURSOR_MOVE_DECREMENT = 0b00000000;
         const CURSOR_MOVE_INCREMENT = 0b00000010;
     }
@@ -59,7 +55,14 @@ bitflags! {
 }
 
 bitflags! {
-    struct CursorMove: u8 {
+    struct ShiftTarget: u8 {
+        const CURSOR  = 0b00000000;
+        const DISPLAY = 0b00001000;
+    }
+}
+
+bitflags! {
+    struct ShiftDirection: u8 {
         const RIGHT = 0b00000100;
         const LEFT  = 0b00000000;
     }
@@ -78,6 +81,7 @@ pub struct DisplayPins {
     pub data6: u64,
     pub data7: u64,
 }
+
 /// A HD44780 compliant display.
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
@@ -89,6 +93,7 @@ pub struct Display<T: DisplayHardwareLayer> {
     data5: T,
     data6: T,
     data7: T,
+    cursor_address: u8,
 }
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
 /// wrapper around the hardware specific system calls.
@@ -111,24 +116,75 @@ pub enum MoveDirection {
     Decrement,
 }
 
-/// Enumeration of possible methods to shift a display.
+/// Enumeration of possible methods to shift a cursor or display.
 pub enum ShiftTo {
     /// Shifts to the right by the given offset.
-    Right(u64),
+    Right(u8),
     /// Shifts to the left by the given offset.
-    Left(u64),
+    Left(u8),
 }
 
-/// Enumeration of possible methods to move the cursor of a display.
-pub enum MoveFrom {
-    /// Moves the cursor to the given direction by the offset.
-    Current {
-        /// The direction to move to.
-        direction: MoveDirection,
-        /// The offset the cursor will be moved.
-        offset: u64,
-    },
-    // TODO add from start/end
+impl ShiftTo {
+    fn as_offset_and_raw_direction(&self) -> (u8, ShiftDirection) {
+        match *self {
+            ShiftTo::Right(offset) => (offset, RIGHT),
+            ShiftTo::Left(offset) => (offset, LEFT),
+        }
+    }
+}
+
+enum InnerSeekFrom {
+    Home(u8),
+    Current(u8),
+    Line { address: u8, bytes: u8 },
+}
+
+/// Enumeration like struct of possible methods to seek within a `Display` object.
+pub struct SeekFrom(InnerSeekFrom);
+
+impl SeekFrom {
+    /// Sets the cursor position to `Home` plus the provided number of bytes.
+    pub fn home(bytes: u8) -> SeekFrom {
+        SeekFrom(InnerSeekFrom::Home(bytes))
+    }
+
+    /// Sets the cursor to the current position plus the specified number of bytes.
+    pub fn current(bytes: u8) -> SeekFrom {
+        SeekFrom(InnerSeekFrom::Current(bytes))
+    }
+
+    /// Sets the cursor position to the provides line plus the specified number of bytes.
+    pub fn line<T>(line: T, bytes: u8) -> SeekFrom
+    where
+        T: Addressable,
+    {
+        SeekFrom(InnerSeekFrom::Line {
+            address: line.address(),
+            bytes,
+        })
+    }
+}
+
+/// The `Addressable` trait provides a hardware address for a type.
+pub trait Addressable {
+    /// Returns the address of the type.
+    fn address(&self) -> u8;
+}
+
+/// Enumeration of default lines.
+pub enum DefaultLines {
+    One,
+    Two,
+}
+
+impl Addressable for DefaultLines {
+    /// Returns the hardware address of the line.
+    fn address(&self) -> u8 {
+        match *self {
+            DefaultLines::One => FIRST_LINE_ADDRESS,
+            DefaultLines::Two => SECOND_LINE_ADDRESS,
+        }
+    }
 }
 
 /// A struct for creating display entry mode settings.
@@ -179,15 +235,17 @@ impl EntryModeBuilder {
             MoveDirection::Decrement => CURSOR_MOVE_DECREMENT.bits(),
         };
 
-        cmd |= match self.display_shift {
-            true => DISPLAY_SHIFT_ENABLE.bits(),
-            false => DISPLAY_SHIFT_DISABLE.bits(),
+        cmd |= if self.display_shift {
+            DISPLAY_SHIFT_ENABLE.bits()
+        } else {
+            DISPLAY_SHIFT_DISABLE.bits()
         };
 
         cmd
     }
 }
 
+#[derive(Default)]
 /// A struct for creating display control settings.
 pub struct DisplayControlBuilder {
     // FIXME use enum instead of bool
@@ -244,19 +302,22 @@ impl DisplayControlBuilder {
     fn build_command(&self) -> u8 {
         let mut cmd = DISPLAY_CONTROL.bits();
 
-        cmd |= match self.display {
-            true => DISPLAY_ON.bits(),
-            false => DISPLAY_OFF.bits(),
+        cmd |= if self.display {
+            DISPLAY_ON.bits()
+        } else {
+            DISPLAY_OFF.bits()
         };
 
-        cmd |= match self.cursor {
-            true => CURSOR_ON.bits(),
-            false => CURSOR_OFF.bits(),
+        cmd |= if self.cursor {
+            CURSOR_ON.bits()
+        } else {
+            CURSOR_OFF.bits()
         };
 
-        cmd |= match self.cursor {
-            true => CURSOR_BLINKING_ON.bits(),
-            false => CURSOR_BLINKING_OFF.bits(),
+        cmd |= if self.cursor {
+            CURSOR_BLINKING_ON.bits()
+        } else {
+            CURSOR_BLINKING_OFF.bits()
         };
 
         cmd
@@ -273,6 +334,7 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
             data5: T::from(pins.data5),
             data6: T::from(pins.data6),
             data7: T::from(pins.data7),
+            cursor_address: 0,
         };
 
         lcd.register_select.init();
@@ -316,24 +378,18 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
         self.send_byte(builder.build_command(), WriteMode::Command);
     }
 
-    /// Moves the cursor to the left or the right by the given offset.
-    pub fn move_cursor(&self, pos: MoveFrom) {
-        match pos {
-            MoveFrom::Current { offset, direction } => self.move_from_current(offset, direction),
+    /// Shifts the cursor to the left or the right by the given offset.
+    ///
+    /// **Note:** Consider to use [seek()](struct.Display.html#method.seek) for longer distances.
+    pub fn shift_cursor(&mut self, direction: ShiftTo) {
+        let (offset, raw_direction) = direction.as_offset_and_raw_direction();
+
+        match direction {
+            ShiftTo::Right(offset) => self.cursor_address += offset,
+            ShiftTo::Left(offset) => self.cursor_address -= offset,
         }
-    }
 
-    fn move_from_current(&self, offset: u64, direction: MoveDirection) {
-        let mut cmd = SHIFT.bits();
-
-        cmd |= match direction {
-            MoveDirection::Increment => RIGHT.bits(),
-            MoveDirection::Decrement => LEFT.bits(),
-        };
-
-        for _ in 0..offset {
-            self.send_byte(cmd, WriteMode::Command);
-        }
+        self.raw_shift(CURSOR, offset, raw_direction);
     }
 
     /// Shifts the display to the right or the left by the given offset.
@@ -343,16 +399,16 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     /// When the displayed data is shifted repeatedly each line moves only horizontally.
     /// The second line display does not shift into the first line position.
     pub fn shift(&self, direction: ShiftTo) {
+        let (offset, raw_direction) = direction.as_offset_and_raw_direction();
+
+        self.raw_shift(DISPLAY, offset, raw_direction);
+    }
+
+    fn raw_shift(&self, shift_type: ShiftTarget, offset: u8, raw_direction: ShiftDirection) {
         let mut cmd = SHIFT.bits();
 
-        cmd |= 0b00001000;
-
-        let (offset, direction_bits) = match direction {
-            ShiftTo::Right(offset) => (offset, RIGHT.bits()),
-            ShiftTo::Left(offset) => (offset, LEFT.bits()),
-        };
-
-        cmd |= direction_bits;
+        cmd |= shift_type.bits();
+        cmd |= raw_direction.bits();
 
         for _ in 0..offset {
             self.send_byte(cmd, WriteMode::Command);
@@ -367,13 +423,21 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
         self.send_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
 
-    pub fn set_line(&self, line: Line) {
-        let line = match line {
-            Line::One => LCD_LINE_1,
-            Line::Two => LCD_LINE_2,
+    /// Seeks to an offset in display data RAM.
+    pub fn seek(&mut self, pos: SeekFrom) {
+        let mut cmd = SET_DDRAM.bits();
+
+        let (start, bytes) = match pos.0 {
+            InnerSeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
+            InnerSeekFrom::Current(bytes) => (self.cursor_address, bytes),
+            InnerSeekFrom::Line { address, bytes } => (address, bytes),
         };
 
-        self.send_byte(line, WriteMode::Command);
+        self.cursor_address = start + bytes;
+
+        cmd |= self.cursor_address;
+
+        self.send_byte(cmd, WriteMode::Command);
     }
 
     fn send_byte(&self, value: u8, mode: WriteMode) {
@@ -434,8 +498,9 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     }
 
     /// Writes the given message on the display, starting from the current cursor position.
-    pub fn write_message(&self, msg: &str) {
+    pub fn write_message(&mut self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
+            self.cursor_address += 1;
             self.send_byte(*c, WriteMode::Data);
         }
     }
