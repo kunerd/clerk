@@ -1,8 +1,7 @@
-use super::DISPLAY_CONTROL;
-
 bitflags! {
     struct DisplayControl: u8 {
         // FIXME refactor same values
+        const DISPLAY_CONTROL       = 0b00001000;
         const DISPLAY_OFF           = 0b00000000;
         const CURSOR_OFF            = 0b00000000;
         const CURSOR_BLINKING_OFF   = 0b00000000;

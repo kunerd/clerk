@@ -1,16 +1,10 @@
-use super::ENTRY_MODE;
-
 bitflags! {
-    struct ShiftDirectionDirection: u8 {
-        const CURSOR_MOVE_DECREMENT = 0b00000000;
+    struct EntryModeFlags: u8 {
+        const ENTRY_MODE            = 0b00000100;
         const CURSOR_MOVE_INCREMENT = 0b00000010;
-    }
-}
-
-bitflags! {
-    struct DisplayShift: u8 {
-        const DISPLAY_SHIFT_DISABLE = 0b00000000;
         const DISPLAY_SHIFT_ENABLE  = 0b00000001;
+        const CURSOR_MOVE_DECREMENT = 0b00000000;
+        const DISPLAY_SHIFT_DISABLE = 0b00000000;
     }
 }
 
