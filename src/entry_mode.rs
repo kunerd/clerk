@@ -73,3 +73,9 @@ impl EntryModeBuilder {
         cmd
     }
 }
+
+impl Default for EntryModeBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
