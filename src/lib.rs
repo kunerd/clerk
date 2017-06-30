@@ -8,6 +8,7 @@ extern crate bitflags;
 use std::thread::sleep;
 use std::time::Duration;
 use std::iter::Iterator;
+use std::marker::PhantomData;
 
 // TODO make configurable
 // TODO add optional implementation using the busy flag
@@ -86,7 +87,11 @@ pub struct DisplayPins {
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
 /// liquid crystal display (LCD).
-pub struct Display<T: DisplayHardwareLayer> {
+pub struct Display<T, U>
+where
+    T: From<u64> + DisplayHardwareLayer,
+    U: Into<u8>,
+{
     register_select: T,
     enable: T,
     data4: T,
@@ -94,6 +99,7 @@ pub struct Display<T: DisplayHardwareLayer> {
     data6: T,
     data7: T,
     cursor_address: u8,
+    _marker: PhantomData<U>,
 }
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
 /// wrapper around the hardware specific system calls.
@@ -109,7 +115,6 @@ pub trait DisplayHardwareLayer {
 
 /// Enumeration of possible methods to move.
 pub enum MoveDirection {
-    // TODO rename to right, left
     /// Moves right.
     Increment,
     /// Moves left.
@@ -133,42 +138,14 @@ impl ShiftTo {
     }
 }
 
-enum InnerSeekFrom {
-    Home(u8),
-    Current(u8),
-    Line { address: u8, bytes: u8 },
-}
-
-/// Enumeration like struct of possible methods to seek within a `Display` object.
-pub struct SeekFrom(InnerSeekFrom);
-
-impl SeekFrom {
+/// Enumeration of possible methods to seek within a `Display` object.
+pub enum SeekFrom<T: Into<u8>> {
     /// Sets the cursor position to `Home` plus the provided number of bytes.
-    pub fn home(bytes: u8) -> SeekFrom {
-        SeekFrom(InnerSeekFrom::Home(bytes))
-    }
-
+    Home(u8),
     /// Sets the cursor to the current position plus the specified number of bytes.
-    pub fn current(bytes: u8) -> SeekFrom {
-        SeekFrom(InnerSeekFrom::Current(bytes))
-    }
-
+    Current(u8),
     /// Sets the cursor position to the provides line plus the specified number of bytes.
-    pub fn line<T>(line: T, bytes: u8) -> SeekFrom
-    where
-        T: Addressable,
-    {
-        SeekFrom(InnerSeekFrom::Line {
-            address: line.address(),
-            bytes,
-        })
-    }
-}
-
-/// The `Addressable` trait provides a hardware address for a type.
-pub trait Addressable {
-    /// Returns the address of the type.
-    fn address(&self) -> u8;
+    Line { line: T, bytes: u8 },
 }
 
 /// Enumeration of default lines.
@@ -177,10 +154,10 @@ pub enum DefaultLines {
     Two,
 }
 
-impl Addressable for DefaultLines {
+impl From<DefaultLines> for u8 {
     /// Returns the hardware address of the line.
-    fn address(&self) -> u8 {
-        match *self {
+    fn from(line: DefaultLines) -> Self {
+        match line {
             DefaultLines::One => FIRST_LINE_ADDRESS,
             DefaultLines::Two => SECOND_LINE_ADDRESS,
         }
@@ -324,9 +301,13 @@ impl DisplayControlBuilder {
     }
 }
 
-impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
+impl<T, U> Display<T, U>
+where
+    T: From<u64> + DisplayHardwareLayer,
+    U: Into<u8>,
+{
     /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
-    pub fn from_pins(pins: DisplayPins) -> Display<T> {
+    pub fn from_pins(pins: DisplayPins) -> Display<T, U> {
         let lcd = Display {
             register_select: T::from(pins.register_select),
             enable: T::from(pins.enable),
@@ -335,6 +316,7 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
             data6: T::from(pins.data6),
             data7: T::from(pins.data7),
             cursor_address: 0,
+            _marker: PhantomData,
         };
 
         lcd.register_select.init();
@@ -424,13 +406,13 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     }
 
     /// Seeks to an offset in display data RAM.
-    pub fn seek(&mut self, pos: SeekFrom) {
+    pub fn seek(&mut self, pos: SeekFrom<U>) {
         let mut cmd = SET_DDRAM.bits();
 
-        let (start, bytes) = match pos.0 {
-            InnerSeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
-            InnerSeekFrom::Current(bytes) => (self.cursor_address, bytes),
-            InnerSeekFrom::Line { address, bytes } => (address, bytes),
+        let (start, bytes) = match pos {
+            SeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
+            SeekFrom::Current(bytes) => (self.cursor_address, bytes),
+            SeekFrom::Line { line, bytes } => (line.into(), bytes),
         };
 
         self.cursor_address = start + bytes;
@@ -506,7 +488,11 @@ impl<T: From<u64> + DisplayHardwareLayer> Display<T> {
     }
 }
 
-impl<T: DisplayHardwareLayer> Drop for Display<T> {
+impl<T, U> Drop for Display<T, U>
+where
+    T: From<u64> + DisplayHardwareLayer,
+    U: Into<u8>,
+{
     fn drop(&mut self) {
         self.register_select.cleanup();
         self.enable.cleanup();
