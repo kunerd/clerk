@@ -6,6 +6,7 @@
 extern crate bitflags;
 
 mod entry_mode;
+mod display_control;
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -13,6 +14,7 @@ use std::iter::Iterator;
 use std::marker::PhantomData;
 
 use entry_mode::EntryModeBuilder;
+use display_control::DisplayControlBuilder;
 // TODO make configurable
 // TODO add optional implementation using the busy flag
 static E_DELAY: u32 = 5;
@@ -29,18 +31,6 @@ bitflags! {
         const SHIFT             = 0b00010000;
         const FUNCTION_SET      = 0b00100000;
         const SET_DDRAM         = 0b10000000;
-    }
-}
-
-bitflags! {
-    struct DisplayControl: u8 {
-        // FIXME refactor same values
-        const DISPLAY_OFF           = 0b00000000;
-        const CURSOR_OFF            = 0b00000000;
-        const CURSOR_BLINKING_OFF   = 0b00000000;
-        const DISPLAY_ON            = 0b00000100;
-        const CURSOR_ON             = 0b00000010;
-        const CURSOR_BLINKING_ON    = 0b00000001;
     }
 }
 
@@ -142,85 +132,6 @@ impl From<DefaultLines> for u8 {
             DefaultLines::One => FIRST_LINE_ADDRESS,
             DefaultLines::Two => SECOND_LINE_ADDRESS,
         }
-    }
-}
-
-#[derive(Default)]
-/// A struct for creating display control settings.
-pub struct DisplayControlBuilder {
-    // FIXME use enum instead of bool
-    display: bool,
-    cursor: bool,
-    blink: bool,
-}
-
-impl DisplayControlBuilder {
-    /// Makes a new `DisplayControlBuilder` using the default settings described below.
-    ///
-    /// The default settings are:
-    ///
-    ///  - **display:**
-    ///     - `On`
-    ///  - **cursor:**
-    ///     - `Off`
-    ///  - **blinking of cursor:**
-    ///     - `Off`
-    pub fn new() -> DisplayControlBuilder {
-        DisplayControlBuilder {
-            display: true,
-            cursor: false,
-            blink: false,
-        }
-    }
-
-    /// Sets the entire display `On` or `Off`.
-    ///
-    /// Default is `On`.
-    pub fn set_display(&mut self, status: bool) -> &mut DisplayControlBuilder {
-        self.display = status;
-        self
-    }
-
-    /// Sets the cursor `On` or `Off`.
-    ///
-    /// Default is `Off`.
-    ///
-    /// **Note:** This will not change cursor move direction or any other settings.
-    pub fn set_cursor(&mut self, cursor: bool) -> &mut DisplayControlBuilder {
-        self.cursor = cursor;
-        self
-    }
-
-    /// Sets the blinking of the cursor `On` of `Off`.
-    ///
-    /// Default is `Off`.
-    pub fn set_cursor_blinking(&mut self, blink: bool) -> &mut DisplayControlBuilder {
-        self.blink = blink;
-        self
-    }
-
-    fn build_command(&self) -> u8 {
-        let mut cmd = DISPLAY_CONTROL.bits();
-
-        cmd |= if self.display {
-            DISPLAY_ON.bits()
-        } else {
-            DISPLAY_OFF.bits()
-        };
-
-        cmd |= if self.cursor {
-            CURSOR_ON.bits()
-        } else {
-            CURSOR_OFF.bits()
-        };
-
-        cmd |= if self.cursor {
-            CURSOR_BLINKING_ON.bits()
-        } else {
-            CURSOR_BLINKING_OFF.bits()
-        };
-
-        cmd
     }
 }
 
