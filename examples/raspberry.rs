@@ -38,7 +38,7 @@ fn main() {
         data7: 20,
     };
 
-    let mut lcd: Display<ExternPin> = Display::from_pins(pins);
+    let mut lcd: Display<ExternPin, DefaultLines> = Display::from_pins(pins);
 
     lcd.set_display_control(|e| {
         e.set_display(true)
@@ -47,16 +47,22 @@ fn main() {
     });
 
 
-    lcd.seek(SeekFrom::line(DefaultLines::One, 0));
+    lcd.seek(SeekFrom::Line {
+        line: DefaultLines::One,
+        bytes: 0,
+    });
     lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("Hallo");
 
-    lcd.seek(SeekFrom::line(DefaultLines::Two, 0));
+    lcd.seek(SeekFrom::Line {
+        line: DefaultLines::Two,
+        bytes: 0,
+    });
     lcd.shift_cursor(ShiftTo::Right(2));
     lcd.write_message("du");
     lcd.shift_cursor(ShiftTo::Left(2));
 
     lcd.shift(ShiftTo::Right(4));
 
-    lcd.seek(SeekFrom::current(5));
+    lcd.seek(SeekFrom::Current(5));
 }
