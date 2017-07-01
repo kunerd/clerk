@@ -150,7 +150,7 @@ where
     where
         F: Fn(&mut EntryModeBuilder),
     {
-        let mut builder = EntryModeBuilder::new();
+        let mut builder = EntryModeBuilder::default();
         f(&mut builder);
         self.send_byte(builder.build_command(), WriteMode::Command);
     }

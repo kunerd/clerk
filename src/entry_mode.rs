@@ -49,21 +49,6 @@ pub struct EntryModeBuilder {
 }
 
 impl EntryModeBuilder {
-    /// Make a new `EntryModeBuilder` with the default settings described below.
-    ///
-    /// The default settings are:
-    ///
-    ///  - **move direction:**
-    ///     - `Increment`
-    ///  - **display_shift:**
-    ///     - `Off`
-    pub fn new() -> EntryModeBuilder {
-        EntryModeBuilder {
-            move_direction: MoveDirection::Increment,
-            display_shift: DisplayShift::Off,
-        }
-    }
-
     /// Sets the direction the read/write cursor is moved when a character code is written to or
     /// read from the display.
     pub fn set_move_direction(&mut self, direction: MoveDirection) -> &mut EntryModeBuilder {
@@ -93,7 +78,18 @@ impl EntryModeBuilder {
 }
 
 impl Default for EntryModeBuilder {
+    /// Make a new `EntryModeBuilder` with the default settings described below.
+    ///
+    /// The default settings are:
+    ///
+    ///  - **move direction:**
+    ///     - `Increment`
+    ///  - **display_shift:**
+    ///     - `Off`
     fn default() -> Self {
-        Self::new()
+        Self {
+            move_direction: MoveDirection::Increment,
+            display_shift: DisplayShift::Off,
+        }
     }
 }
