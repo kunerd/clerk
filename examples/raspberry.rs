@@ -1,7 +1,8 @@
 extern crate sysfs_gpio;
 extern crate clerk;
 
-use clerk::{SeekFrom, Display, DisplayPins, DisplayHardwareLayer, ShiftTo, DefaultLines};
+use clerk::{SeekFrom, Display, DisplayPins, DisplayHardwareLayer, ShiftTo, DefaultLines,
+            DisplayState, CursorState, CursorBlinking};
 
 use sysfs_gpio::{Direction, Pin};
 
@@ -41,9 +42,9 @@ fn main() {
     let mut lcd: Display<ExternPin, DefaultLines> = Display::from_pins(pins);
 
     lcd.set_display_control(|e| {
-        e.set_display(true)
-            .set_cursor(true)
-            .set_cursor_blinking(true);
+        e.set_display(DisplayState::On)
+            .set_cursor(CursorState::Off)
+            .set_cursor_blinking(CursorBlinking::On);
     });
 
 
