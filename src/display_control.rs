@@ -69,7 +69,7 @@ impl DisplayControlBuilder {
     /// Sets the entire display `On` or `Off`.
     ///
     /// Default is `On`.
-    pub fn set_display(&mut self, state: DisplayState) -> &mut DisplayControlBuilder {
+    pub fn set_display(&mut self, state: DisplayState) -> &mut Self {
         self.display = state;
         self
     }
@@ -79,7 +79,7 @@ impl DisplayControlBuilder {
     /// Default is `Off`.
     ///
     /// **Note:** This will not change cursor move direction or any other settings.
-    pub fn set_cursor(&mut self, state: CursorState) -> &mut DisplayControlBuilder {
+    pub fn set_cursor(&mut self, state: CursorState) -> &mut Self {
         self.cursor = state;
         self
     }
@@ -87,7 +87,7 @@ impl DisplayControlBuilder {
     /// Sets the blinking of the cursor `On` of `Off`.
     ///
     /// Default is `Off`.
-    pub fn set_cursor_blinking(&mut self, blinking: CursorBlinking) -> &mut DisplayControlBuilder {
+    pub fn set_cursor_blinking(&mut self, blinking: CursorBlinking) -> &mut Self {
         self.blinking = blinking;
         self
     }

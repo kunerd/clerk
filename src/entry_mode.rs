@@ -51,7 +51,7 @@ pub struct EntryModeBuilder {
 impl EntryModeBuilder {
     /// Sets the direction the read/write cursor is moved when a character code is written to or
     /// read from the display.
-    pub fn set_move_direction(&mut self, direction: MoveDirection) -> &mut EntryModeBuilder {
+    pub fn set_move_direction(&mut self, direction: MoveDirection) -> &mut Self {
         self.move_direction = direction;
         self
     }
@@ -62,7 +62,7 @@ impl EntryModeBuilder {
     /// does.
     ///
     /// **Note:** The display does not shift when reading.
-    pub fn set_display_shift(&mut self, shift: DisplayShift) -> &mut EntryModeBuilder {
+    pub fn set_display_shift(&mut self, shift: DisplayShift) -> &mut Self {
         self.display_shift = shift;
         self
     }
