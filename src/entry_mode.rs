@@ -30,7 +30,7 @@ impl From<MoveDirection> for EntryModeFlags {
 #[derive(Clone, Copy)]
 pub enum DisplayShift {
     On,
-    Off
+    Off,
 }
 
 impl From<DisplayShift> for EntryModeFlags {

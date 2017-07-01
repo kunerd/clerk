@@ -15,4 +15,5 @@ use display_control::DisplayControlBuilder;
 use lines::FIRST_LINE_ADDRESS;
 
 pub use lines::DefaultLines;
+pub use display_control::{DisplayState, CursorState, CursorBlinking};
 pub use display::{Display, DisplayPins, DisplayHardwareLayer, SeekFrom, ShiftTo};
