@@ -66,24 +66,6 @@ pub struct DisplayControlBuilder {
 }
 
 impl DisplayControlBuilder {
-    /// Makes a new `DisplayControlBuilder` using the default settings described below.
-    ///
-    /// The default settings are:
-    ///
-    ///  - **display:**
-    ///     - `On`
-    ///  - **cursor:**
-    ///     - `Off`
-    ///  - **blinkinging of cursor:**
-    ///     - `Off`
-    pub fn new() -> DisplayControlBuilder {
-        DisplayControlBuilder {
-            display: DisplayState::On,
-            cursor: CursorState::Off,
-            blinking: CursorBlinking::Off,
-        }
-    }
-
     /// Sets the entire display `On` or `Off`.
     ///
     /// Default is `On`.
@@ -118,5 +100,25 @@ impl DisplayControlBuilder {
         cmd |= DisplayControlFlags::from(self.blinking);
 
         cmd.bits()
+    }
+}
+
+impl Default for DisplayControlBuilder {
+    /// Makes a new `DisplayControlBuilder` using the default settings described below.
+    ///
+    /// The default settings are:
+    ///
+    ///  - **display:**
+    ///     - `On`
+    ///  - **cursor:**
+    ///     - `Off`
+    ///  - **blinkinging of cursor:**
+    ///     - `Off`
+    fn default() -> Self {
+        Self {
+            display: DisplayState::On,
+            cursor: CursorState::Off,
+            blinking: CursorBlinking::Off,
+        }
     }
 }

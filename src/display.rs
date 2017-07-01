@@ -160,7 +160,7 @@ where
     where
         F: Fn(&mut DisplayControlBuilder),
     {
-        let mut builder = DisplayControlBuilder::new();
+        let mut builder = DisplayControlBuilder::default();
         f(&mut builder);
         self.send_byte(builder.build_command(), WriteMode::Command);
     }
