@@ -16,6 +16,7 @@ bitflags! {
         const CLEAR_DISPLAY     = 0b00000001;
         const RETURN_HOME       = 0b00000010;
         const SHIFT             = 0b00010000;
+        const SET_CGRAM         = 0b01000000;
         const SET_DDRAM         = 0b10000000;
     }
 }
@@ -154,14 +155,14 @@ where
         lcd.read.set_value(0).unwrap();
 
         // Initializing by Instruction
-        lcd.send_byte(0x33, WriteMode::Command);
-        lcd.send_byte(0x32, WriteMode::Command);
+        lcd.write_byte(0x33, WriteMode::Command);
+        lcd.write_byte(0x32, WriteMode::Command);
         // FuctionSet: Data length 4bit + 2 lines
-        lcd.send_byte(0x28, WriteMode::Command);
+        lcd.write_byte(0x28, WriteMode::Command);
         // DisplayControl: Display on, Cursor off + cursor blinking off
-        lcd.send_byte(0x0C, WriteMode::Command);
+        lcd.write_byte(0x0C, WriteMode::Command);
         // EntryModeSet: Cursor move direction inc + no display shift
-        lcd.send_byte(0x06, WriteMode::Command);
+        lcd.write_byte(0x06, WriteMode::Command);
         lcd.clear(); // ClearDisplay
 
         lcd
@@ -174,7 +175,7 @@ where
     {
         let mut builder = EntryModeBuilder::default();
         f(&mut builder);
-        self.send_byte(builder.build_command(), WriteMode::Command);
+        self.write_byte(builder.build_command(), WriteMode::Command);
     }
 
     /// Sets the display control settings using the builder given in the closure.
@@ -184,7 +185,7 @@ where
     {
         let mut builder = DisplayControlBuilder::default();
         f(&mut builder);
-        self.send_byte(builder.build_command(), WriteMode::Command);
+        self.write_byte(builder.build_command(), WriteMode::Command);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
@@ -220,7 +221,7 @@ where
         cmd |= raw_direction.bits();
 
         for _ in 0..offset {
-            self.send_byte(cmd, WriteMode::Command);
+            self.write_byte(cmd, WriteMode::Command);
         }
     }
 
@@ -229,7 +230,7 @@ where
     ///
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&self) {
-        self.send_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
+        self.write_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
 
     /// Seeks to an offset in display data RAM.
@@ -246,10 +247,26 @@ where
 
         cmd |= self.cursor_address;
 
-        self.send_byte(cmd, WriteMode::Command);
+        self.write_byte(cmd, WriteMode::Command);
     }
 
-    fn send_byte(&self, value: u8, mode: WriteMode) {
+    /// Seeks to an offset in display character generator RAM.
+    pub fn seek_cgram(&mut self, pos: SeekFrom<U>) {
+        let mut cmd = SET_CGRAM.bits();
+
+        let (start, bytes) = match pos {
+            SeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
+            SeekFrom::Current(bytes) => (self.cursor_address, bytes),
+            SeekFrom::Line { line, bytes } => (line.into(), bytes),
+        };
+        self.cursor_address = start + bytes;
+
+        cmd |= self.cursor_address;
+
+        self.write_byte(cmd, WriteMode::Command);
+    }
+
+    fn write_byte(&self, value: u8, mode: WriteMode) {
         let wait_time = Duration::new(0, E_DELAY);
 
         self.read.set_value(0).unwrap();
@@ -370,11 +387,12 @@ where
         (busy_flag, address)
     }
 
-    /// Writes the given message on the display, starting from the current cursor position.
+    /// Writes the given message to data or character generator RAM, depending on the previous
+    /// seek operation.
     pub fn write_message(&mut self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
             self.cursor_address += 1;
-            self.send_byte(*c, WriteMode::Data);
+            self.write_byte(*c, WriteMode::Data);
         }
     }
 }
