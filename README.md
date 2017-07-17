@@ -15,8 +15,10 @@ interfaces will change. Also there is no error handling currently.
 - [ ] Function set
 - [x] Display control settings
 - [x] Set DDRAM address (high level interface via `seek()`)
-- [ ] Read support (Busy-flag, Addresses)
+- [ ] Set CGRAM address
+- [x] Read/write DDRAM
+- [ ] Read/write CGRAM
+- [x] Read busy flag and cursor address
 
 ## Documentation
 https://docs.rs/clerk
-
