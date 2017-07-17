@@ -39,6 +39,12 @@ enum WriteMode {
     Data,
 }
 
+enum ReadMode {
+    Data,
+    // TODO: use busy flag
+    BusyFlag,
+}
+
 /// Enumeration of possible methods to shift a cursor or display.
 pub enum ShiftTo {
     /// Shifts to the right by the given offset.
@@ -66,6 +72,12 @@ pub enum SeekFrom<T: Into<u8>> {
     Line { line: T, bytes: u8 },
 }
 
+/// Enumeration of possible data directions of a pin.
+pub enum Direction {
+    In,
+    Out,
+}
+
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
 /// wrapper around the hardware specific system calls.
 pub trait DisplayHardwareLayer {
@@ -73,13 +85,18 @@ pub trait DisplayHardwareLayer {
     fn init(&self) {}
     /// Cleanup an I/O pin.
     fn cleanup(&self) {}
+
+    fn set_direction(&self, Direction);
     /// Sets a value on an I/O pin.
     // TODO need a way to let the user set up how levels are interpreted by the hardware
     fn set_value(&self, u8) -> Result<(), ()>;
+
+    fn get_value(&self) -> u8;
 }
 
 pub struct DisplayPins {
     pub register_select: u64,
+    pub read: u64,
     pub enable: u64,
     pub data4: u64,
     pub data5: u64,
@@ -97,6 +114,7 @@ where
     U: Into<u8>,
 {
     register_select: T,
+    read: T,
     enable: T,
     data4: T,
     data5: T,
@@ -116,6 +134,7 @@ where
         let lcd = Display {
             register_select: T::from(pins.register_select),
             enable: T::from(pins.enable),
+            read: T::from(pins.read),
             data4: T::from(pins.data4),
             data5: T::from(pins.data5),
             data6: T::from(pins.data6),
@@ -125,11 +144,14 @@ where
         };
 
         lcd.register_select.init();
+        lcd.read.init();
         lcd.enable.init();
         lcd.data4.init();
         lcd.data5.init();
         lcd.data6.init();
         lcd.data7.init();
+
+        lcd.read.set_value(0).unwrap();
 
         // Initializing by Instruction
         lcd.send_byte(0x33, WriteMode::Command);
@@ -230,6 +252,12 @@ where
     fn send_byte(&self, value: u8, mode: WriteMode) {
         let wait_time = Duration::new(0, E_DELAY);
 
+        self.read.set_value(0).unwrap();
+        self.data4.set_direction(Direction::Out);
+        self.data5.set_direction(Direction::Out);
+        self.data6.set_direction(Direction::Out);
+        self.data7.set_direction(Direction::Out);
+
         match mode {
             WriteMode::Data => self.register_select.set_value(1),
             WriteMode::Command => self.register_select.set_value(0),
@@ -282,6 +310,64 @@ where
         sleep(wait_time);
         self.enable.set_value(0).unwrap();
         sleep(wait_time);
+    }
+
+    fn read_raw_byte(&self, mode: ReadMode) -> u8 {
+        let mut result = 0u8;
+        let wait_time = Duration::new(0, 10);
+
+        self.data4.set_direction(Direction::In);
+        self.data5.set_direction(Direction::In);
+        self.data6.set_direction(Direction::In);
+        self.data7.set_direction(Direction::In);
+
+        match mode {
+            ReadMode::Data => self.register_select.set_value(1),
+            ReadMode::BusyFlag => self.register_select.set_value(0),
+        }.unwrap();
+
+        self.read.set_value(1).unwrap();
+        sleep(Duration::new(0, 45));
+
+        self.enable.set_value(1).unwrap();
+        sleep(Duration::new(0, 165));
+
+        result |= self.data7.get_value() << 7;
+        result |= self.data6.get_value() << 6;
+        result |= self.data5.get_value() << 5;
+        result |= self.data4.get_value() << 4;
+
+        self.enable.set_value(0).unwrap();
+        sleep(wait_time);
+        self.enable.set_value(1).unwrap();
+        sleep(Duration::new(0, 165));
+
+        result |= self.data7.get_value() << 3;
+        result |= self.data6.get_value() << 2;
+        result |= self.data5.get_value() << 1;
+        result |= self.data4.get_value();
+
+        self.enable.set_value(0).unwrap();
+        sleep(wait_time);
+
+        result
+    }
+
+    /// Reads a single byte from data RAM.
+    pub fn read_byte(&mut self) -> u8 {
+        self.cursor_address += 1;
+        self.read_raw_byte(ReadMode::Data)
+    }
+
+    /// Reads busy flag and the cursor's current address.
+    pub fn read_busy_flag(&self) -> (bool, u8) {
+        let byte = self.read_raw_byte(ReadMode::BusyFlag);
+
+        let busy_flag = (byte & 0b10000000) != 0;
+
+        let address = byte & 0b01111111;
+
+        (busy_flag, address)
     }
 
     /// Writes the given message on the display, starting from the current cursor position.
