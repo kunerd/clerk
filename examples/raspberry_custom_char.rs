@@ -74,6 +74,13 @@ fn main() {
     ];
     lcd.write_message(str::from_utf8(&character).unwrap());
 
+    lcd.seek_cgram(SeekFrom::Home(0));
+    println!("Created custom char is: ");
+    for _ in 0..8 {
+        let value = lcd.read_byte();
+        println!("{:#08b}", value)
+    }
+
     let msg = [0];
     lcd.seek(SeekFrom::Home(0));
     lcd.write_message(str::from_utf8(&msg).unwrap());
