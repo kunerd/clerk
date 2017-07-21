@@ -15,9 +15,9 @@ interfaces will change. Also there is no error handling currently.
 - [ ] Function set
 - [x] Display control settings
 - [x] Set DDRAM address (high level interface via `seek()`)
-- [ ] Set CGRAM address
+- [x] Set CGRAM address
 - [x] Read/write DDRAM
-- [ ] Read/write CGRAM
+- [x] Read/write CGRAM (create custom characters)
 - [x] Read busy flag and cursor address
 
 ## Documentation
