@@ -16,8 +16,6 @@ bitflags! {
         const CLEAR_DISPLAY     = 0b00000001;
         const RETURN_HOME       = 0b00000010;
         const SHIFT             = 0b00010000;
-        const SET_CGRAM         = 0b01000000;
-        const SET_DDRAM         = 0b10000000;
     }
 }
 
@@ -44,6 +42,20 @@ enum ReadMode {
     Data,
     // TODO: use busy flag
     BusyFlag,
+}
+
+enum RamType {
+    DisplayData,
+    CharacterGenerator,
+}
+
+impl From<RamType> for u8 {
+    fn from(ram_type: RamType) -> Self {
+        match ram_type {
+            RamType::DisplayData => 0b10000000,
+            RamType::CharacterGenerator => 0b01000000,
+        }
+    }
 }
 
 /// Enumeration of possible methods to shift a cursor or display.
@@ -233,9 +245,8 @@ where
         self.write_byte(CLEAR_DISPLAY.bits(), WriteMode::Command);
     }
 
-    /// Seeks to an offset in display data RAM.
-    pub fn seek(&mut self, pos: SeekFrom<U>) {
-        let mut cmd = SET_DDRAM.bits();
+    fn generic_seek(&mut self, ram_type: RamType, pos: SeekFrom<U>) {
+        let mut cmd = ram_type.into();
 
         let (start, bytes) = match pos {
             SeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
@@ -250,20 +261,14 @@ where
         self.write_byte(cmd, WriteMode::Command);
     }
 
+    /// Seeks to an offset in display data RAM.
+    pub fn seek(&mut self, pos: SeekFrom<U>) {
+        self.generic_seek(RamType::DisplayData, pos);
+    }
+
     /// Seeks to an offset in display character generator RAM.
     pub fn seek_cgram(&mut self, pos: SeekFrom<U>) {
-        let mut cmd = SET_CGRAM.bits();
-
-        let (start, bytes) = match pos {
-            SeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
-            SeekFrom::Current(bytes) => (self.cursor_address, bytes),
-            SeekFrom::Line { line, bytes } => (line.into(), bytes),
-        };
-        self.cursor_address = start + bytes;
-
-        cmd |= self.cursor_address;
-
-        self.write_byte(cmd, WriteMode::Command);
+        self.generic_seek(RamType::CharacterGenerator, pos);
     }
 
     fn write_byte(&self, value: u8, mode: WriteMode) {
