@@ -7,7 +7,7 @@ documentation = "https://docs.rs/clerk"
 repository = "https://github.com/kunerd/clerk"
 readme = "README.md"
 keywords = ["hd44780", "lcd"]
-categories = ["embedded"]
+categories = ["embedded", "no-std"]
 license = "MIT"
 
 [badges]
