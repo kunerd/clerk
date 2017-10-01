@@ -1,14 +1,9 @@
-use std::marker::PhantomData;
-use std::thread::sleep;
-use std::time::Duration;
+use core::marker::PhantomData;
 
 // TODO replace by configurable value
 use super::FIRST_LINE_ADDRESS;
 use super::{DisplayControlBuilder, EntryModeBuilder};
 
-// TODO make configurable
-// TODO add optional implementation using the busy flag
-static E_DELAY: u32 = 5;
 const LCD_WIDTH: usize = 16;
 
 bitflags! {
@@ -272,8 +267,6 @@ where
     }
 
     fn write_byte(&self, value: u8, mode: WriteMode) {
-        let wait_time = Duration::new(0, E_DELAY);
-
         self.read.set_value(0).unwrap();
         self.data4.set_direction(Direction::Out);
         self.data5.set_direction(Direction::Out);
@@ -303,11 +296,11 @@ where
             self.data7.set_value(1).unwrap();
         }
 
-        sleep(wait_time);
+        // FIXME: add delay
         self.enable.set_value(1).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay
         self.enable.set_value(0).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay
 
         self.data4.set_value(0).unwrap();
         self.data5.set_value(0).unwrap();
@@ -327,16 +320,15 @@ where
             self.data7.set_value(1).unwrap();
         }
 
-        sleep(wait_time);
+        // FIXME: add delay
         self.enable.set_value(1).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay
         self.enable.set_value(0).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay
     }
 
     fn read_raw_byte(&self, mode: ReadMode) -> u8 {
         let mut result = 0u8;
-        let wait_time = Duration::new(0, 10);
 
         self.data4.set_direction(Direction::In);
         self.data5.set_direction(Direction::In);
@@ -349,10 +341,9 @@ where
         }.unwrap();
 
         self.read.set_value(1).unwrap();
-        sleep(Duration::new(0, 45));
-
+        // FIXME: add delay, 45ms
         self.enable.set_value(1).unwrap();
-        sleep(Duration::new(0, 165));
+        // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 7;
         result |= self.data6.get_value() << 6;
@@ -360,9 +351,9 @@ where
         result |= self.data4.get_value() << 4;
 
         self.enable.set_value(0).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay, 45ms
         self.enable.set_value(1).unwrap();
-        sleep(Duration::new(0, 165));
+        // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 3;
         result |= self.data6.get_value() << 2;
@@ -370,7 +361,7 @@ where
         result |= self.data4.get_value();
 
         self.enable.set_value(0).unwrap();
-        sleep(wait_time);
+        // FIXME: add delay, 45ms
 
         result
     }

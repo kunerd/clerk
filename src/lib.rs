@@ -2,6 +2,8 @@
 //!
 //! Clerk is a generic and hardware agnostic libary to controll HD44780 compliant LCD displays.
 
+#![no_std]
+
 #[macro_use]
 extern crate bitflags;
 
