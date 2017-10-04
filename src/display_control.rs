@@ -1,12 +1,12 @@
 bitflags! {
     struct DisplayControlFlags: u8 {
-        const DISPLAY_CONTROL       = 0b00001000;
-        const DISPLAY_ON            = 0b00000100;
-        const CURSOR_ON             = 0b00000010;
-        const CURSOR_BLINKING_ON    = 0b00000001;
-        const DISPLAY_OFF           = 0b00000000;
-        const CURSOR_OFF            = 0b00000000;
-        const CURSOR_BLINKING_OFF   = 0b00000000;
+        const DISPLAY_CONTROL       = 0b0000_1000;
+        const DISPLAY_ON            = 0b0000_0100;
+        const CURSOR_ON             = 0b0000_0010;
+        const CURSOR_BLINKING_ON    = 0b0000_0001;
+        const DISPLAY_OFF           = 0b0000_0000;
+        const CURSOR_OFF            = 0b0000_0000;
+        const CURSOR_BLINKING_OFF   = 0b0000_0000;
     }
 }
 

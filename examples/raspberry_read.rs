@@ -1,8 +1,8 @@
-extern crate sysfs_gpio;
 extern crate clerk;
+extern crate sysfs_gpio;
 
-use clerk::{SeekFrom, Display, DisplayPins, DisplayHardwareLayer, DefaultLines, DisplayState,
-            CursorState, CursorBlinking, Direction};
+use clerk::{CursorBlinking, CursorState, DefaultLines, Direction, Display, DisplayHardwareLayer,
+            DisplayPins, DisplayState, SeekFrom};
 
 struct ExternPin(sysfs_gpio::Pin);
 

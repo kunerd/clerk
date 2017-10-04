@@ -1,10 +1,10 @@
 bitflags! {
     struct EntryModeFlags: u8 {
-        const ENTRY_MODE            = 0b00000100;
-        const CURSOR_MOVE_INCREMENT = 0b00000010;
-        const DISPLAY_SHIFT_ON      = 0b00000001;
-        const CURSOR_MOVE_DECREMENT = 0b00000000;
-        const DISPLAY_SHIFT_OFF     = 0b00000000;
+        const ENTRY_MODE            = 0b0000_0100;
+        const CURSOR_MOVE_INCREMENT = 0b0000_0010;
+        const DISPLAY_SHIFT_ON      = 0b0000_0001;
+        const CURSOR_MOVE_DECREMENT = 0b0000_0000;
+        const DISPLAY_SHIFT_OFF     = 0b0000_0000;
     }
 }
 

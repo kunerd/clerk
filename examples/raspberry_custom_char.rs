@@ -1,10 +1,10 @@
 use std::str;
 
-extern crate sysfs_gpio;
 extern crate clerk;
+extern crate sysfs_gpio;
 
-use clerk::{SeekFrom, Display, DisplayPins, DisplayHardwareLayer, DefaultLines, DisplayState,
-            CursorState, CursorBlinking, Direction};
+use clerk::{CursorBlinking, CursorState, DefaultLines, Direction, Display, DisplayHardwareLayer,
+            DisplayPins, DisplayState, SeekFrom};
 
 struct ExternPin(sysfs_gpio::Pin);
 
@@ -63,14 +63,14 @@ fn main() {
 
     lcd.seek_cgram(SeekFrom::Home(0));
     let character = [
-        0b01110,
-        0b10101,
-        0b11111,
-        0b10101,
-        0b01110,
-        0b00100,
-        0b00100,
-        0b11111,
+        0b0_1110,
+        0b1_0101,
+        0b1_1111,
+        0b1_0101,
+        0b0_1110,
+        0b0_0100,
+        0b0_0100,
+        0b1_1111,
     ];
     lcd.write_message(str::from_utf8(&character).unwrap());
 
