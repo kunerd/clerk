@@ -100,9 +100,34 @@ impl From<Nibble> for u8 {
     }
 }
 
+/// Enumeration of possible levels of a pin.
 pub enum Level {
     Low,
     High,
+}
+
+/// The `Delay` trait is used to adapt the timing to the specific hardware and must be implemented
+/// by the libary user.
+pub trait Delay {
+    /// The time (ns) between register select (RS) and read/write (R/W) to enable signal (E).
+    const ADDRESS_SETUP_TIME: u16 = 60;
+    /// The duration (ns) the enable signal is set to `High`.
+    const ENABLE_PULSE_WIDTH: u16 = 450;
+    /// The duration (ns) the data pins will be set after the enable signal was dropped.
+    const DATA_HOLD_TIME: u16 = 20;
+
+    /// The maximum execution time of instruction commands.
+    const COMMAND_EXECUTION_TIME: u16 = 37;
+
+    /// Wait for the given amount of nanoseconds.
+    fn delay_ns(ns: u16);
+
+    /// Wait for the given amount of microseconds.
+    fn delay_us(us: u16) {
+        for _ in 0..us {
+            Self::delay_ns(1000);
+        }
+    }
 }
 
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
@@ -135,10 +160,11 @@ pub struct DisplayPins {
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
 /// liquid crystal display (LCD).
-pub struct Display<T, U>
+pub struct Display<T, U, D>
 where
     T: From<u64> + DisplayHardwareLayer,
     U: Into<u8>,
+    D: Delay,
 {
     register_select: T,
     read: T,
@@ -148,16 +174,18 @@ where
     data6: T,
     data7: T,
     cursor_address: u8,
-    _marker: PhantomData<U>,
+    _line_marker: PhantomData<U>,
+    _delay_marker: PhantomData<D>,
 }
 
-impl<T, U> Display<T, U>
+impl<T, U, D> Display<T, U, D>
 where
     T: From<u64> + DisplayHardwareLayer,
     U: Into<u8>,
+    D: Delay,
 {
     /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
-    pub fn from_pins(pins: DisplayPins) -> Display<T, U> {
+    pub fn from_pins(pins: DisplayPins) -> Display<T, U, D> {
         let lcd = Display {
             register_select: T::from(pins.register_select),
             enable: T::from(pins.enable),
@@ -167,7 +195,8 @@ where
             data6: T::from(pins.data6),
             data7: T::from(pins.data7),
             cursor_address: 0,
-            _marker: PhantomData,
+            _line_marker: PhantomData,
+            _delay_marker: PhantomData,
         };
 
         lcd.register_select.init();
@@ -295,7 +324,7 @@ where
         self.data6.set_level(Level::Low).unwrap();
         self.data7.set_level(Level::Low).unwrap();
 
-        // FIXME: add delay
+        D::delay_ns(D::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High).unwrap();
 
         if value & 0x01 == 0x01 {
@@ -311,9 +340,9 @@ where
             self.data7.set_level(Level::High).unwrap();
         }
 
-        // FIXME: add delay
+        D::delay_ns(D::ENABLE_PULSE_WIDTH);
         self.enable.set_level(Level::Low).unwrap();
-        // FIXME: add delay
+        D::delay_ns(D::DATA_HOLD_TIME);
     }
 
     fn send_byte(&self, byte: u8) {
@@ -355,33 +384,36 @@ where
         self.data6.set_direction(Direction::In);
         self.data7.set_direction(Direction::In);
 
+        self.read.set_level(Level::High).unwrap();
+
         match mode {
             ReadMode::Data => self.register_select.set_level(Level::High),
             ReadMode::BusyFlag => self.register_select.set_level(Level::Low),
         }.unwrap();
 
-        self.read.set_level(Level::High).unwrap();
-        // FIXME: add delay, 45ms
+        D::delay_ns(D::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High).unwrap();
-        // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 7;
         result |= self.data6.get_value() << 6;
         result |= self.data5.get_value() << 5;
         result |= self.data4.get_value() << 4;
 
+        D::delay_ns(D::ENABLE_PULSE_WIDTH);
         self.enable.set_level(Level::Low).unwrap();
-        // FIXME: add delay, 45ms
+        D::delay_ns(D::DATA_HOLD_TIME);
+
+        D::delay_ns(D::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High).unwrap();
-        // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 3;
         result |= self.data6.get_value() << 2;
         result |= self.data5.get_value() << 1;
         result |= self.data4.get_value();
 
+        D::delay_ns(D::ENABLE_PULSE_WIDTH);
         self.enable.set_level(Level::Low).unwrap();
-        // FIXME: add delay, 45ms
+        D::delay_ns(D::DATA_HOLD_TIME);
 
         result
     }
@@ -414,10 +446,11 @@ where
     }
 }
 
-impl<T, U> Drop for Display<T, U>
+impl<T, U, D> Drop for Display<T, U, D>
 where
     T: From<u64> + DisplayHardwareLayer,
     U: Into<u8>,
+    D: Delay,
 {
     fn drop(&mut self) {
         self.register_select.cleanup();
