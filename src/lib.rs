@@ -17,5 +17,5 @@ use lines::FIRST_LINE_ADDRESS;
 pub use lines::DefaultLines;
 pub use display_control::DisplayControlBuilder;
 pub use entry_mode::EntryModeBuilder;
-pub use display_control::{DisplayState, CursorState, CursorBlinking};
-pub use display::{Display, DisplayPins, Direction, DisplayHardwareLayer, SeekFrom, ShiftTo};
+pub use display_control::{CursorBlinking, CursorState, DisplayState};
+pub use display::{Direction, Display, DisplayHardwareLayer, DisplayPins, Level, SeekFrom, ShiftTo};
