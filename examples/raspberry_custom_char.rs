@@ -4,7 +4,7 @@ extern crate clerk;
 extern crate sysfs_gpio;
 
 use clerk::{CursorBlinking, CursorState, DefaultLines, Direction, Display, DisplayHardwareLayer,
-            DisplayPins, DisplayState, SeekFrom};
+            DisplayPins, DisplayState, Level, SeekFrom};
 
 struct ExternPin(sysfs_gpio::Pin);
 
@@ -33,7 +33,12 @@ impl DisplayHardwareLayer for ExternPin {
         self.0.set_direction(native_direction).unwrap();
     }
 
-    fn set_value(&self, value: u8) -> Result<(), ()> {
+    fn set_level(&self, level: Level) -> Result<(), ()> {
+        let value = match level {
+            Level::High => 1,
+            Level::Low => 0,
+        };
+
         self.0.set_value(value).map_err(|_| ())
     }
 

@@ -88,16 +88,21 @@ pub enum Direction {
 
 enum Nibble {
     Upper(u8),
-    Lower(u8)
+    Lower(u8),
 }
 
 impl From<Nibble> for u8 {
     fn from(n: Nibble) -> Self {
         match n {
             Nibble::Upper(base) => base >> 4,
-            Nibble::Lower(base) => base & 0x0f
+            Nibble::Lower(base) => base & 0x0f,
         }
     }
+}
+
+pub enum Level {
+    Low,
+    High,
 }
 
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
@@ -111,7 +116,7 @@ pub trait DisplayHardwareLayer {
     fn set_direction(&self, Direction);
     /// Sets a value on an I/O pin.
     // TODO need a way to let the user set up how levels are interpreted by the hardware
-    fn set_value(&self, u8) -> Result<(), ()>;
+    fn set_level(&self, Level) -> Result<(), ()>;
 
     fn get_value(&self) -> u8;
 }
@@ -173,7 +178,7 @@ where
         lcd.data6.init();
         lcd.data7.init();
 
-        lcd.read.set_value(0).unwrap();
+        lcd.read.set_level(Level::Low).unwrap();
 
         // FIXME remove magic numbers
         // Initializing by Instruction
@@ -285,29 +290,29 @@ where
     fn write_4bit(&self, nibble: Nibble) {
         let value: u8 = nibble.into();
 
-        self.data4.set_value(0).unwrap();
-        self.data5.set_value(0).unwrap();
-        self.data6.set_value(0).unwrap();
-        self.data7.set_value(0).unwrap();
+        self.data4.set_level(Level::Low).unwrap();
+        self.data5.set_level(Level::Low).unwrap();
+        self.data6.set_level(Level::Low).unwrap();
+        self.data7.set_level(Level::Low).unwrap();
 
         // FIXME: add delay
-        self.enable.set_value(1).unwrap();
+        self.enable.set_level(Level::High).unwrap();
 
         if value & 0x01 == 0x01 {
-            self.data4.set_value(1).unwrap();
+            self.data4.set_level(Level::High).unwrap();
         }
         if value & 0x02 == 0x02 {
-            self.data5.set_value(1).unwrap();
+            self.data5.set_level(Level::High).unwrap();
         }
         if value & 0x04 == 0x04 {
-            self.data6.set_value(1).unwrap();
+            self.data6.set_level(Level::High).unwrap();
         }
         if value & 0x08 == 0x08 {
-            self.data7.set_value(1).unwrap();
+            self.data7.set_level(Level::High).unwrap();
         }
 
         // FIXME: add delay
-        self.enable.set_value(0).unwrap();
+        self.enable.set_level(Level::Low).unwrap();
         // FIXME: add delay
     }
 
@@ -317,13 +322,13 @@ where
     }
 
     fn write_data(&self, value: u8) {
-        self.register_select.set_value(1).unwrap();
+        self.register_select.set_level(Level::High).unwrap();
 
         self.send_byte(value);
     }
 
     fn write_command(&self, cmd: u8) {
-        self.register_select.set_value(0).unwrap();
+        self.register_select.set_level(Level::Low).unwrap();
 
         self.send_byte(cmd);
     }
@@ -334,7 +339,7 @@ where
         self.data6.set_direction(Direction::Out);
         self.data7.set_direction(Direction::Out);
 
-        self.read.set_value(0).unwrap();
+        self.read.set_level(Level::Low).unwrap();
 
         match mode {
             WriteMode::Data(value) => self.write_data(value),
@@ -351,13 +356,13 @@ where
         self.data7.set_direction(Direction::In);
 
         match mode {
-            ReadMode::Data => self.register_select.set_value(1),
-            ReadMode::BusyFlag => self.register_select.set_value(0),
+            ReadMode::Data => self.register_select.set_level(Level::High),
+            ReadMode::BusyFlag => self.register_select.set_level(Level::Low),
         }.unwrap();
 
-        self.read.set_value(1).unwrap();
+        self.read.set_level(Level::High).unwrap();
         // FIXME: add delay, 45ms
-        self.enable.set_value(1).unwrap();
+        self.enable.set_level(Level::High).unwrap();
         // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 7;
@@ -365,9 +370,9 @@ where
         result |= self.data5.get_value() << 5;
         result |= self.data4.get_value() << 4;
 
-        self.enable.set_value(0).unwrap();
+        self.enable.set_level(Level::Low).unwrap();
         // FIXME: add delay, 45ms
-        self.enable.set_value(1).unwrap();
+        self.enable.set_level(Level::High).unwrap();
         // FIXME: add delay, 165ms
 
         result |= self.data7.get_value() << 3;
@@ -375,7 +380,7 @@ where
         result |= self.data5.get_value() << 1;
         result |= self.data4.get_value();
 
-        self.enable.set_value(0).unwrap();
+        self.enable.set_level(Level::Low).unwrap();
         // FIXME: add delay, 45ms
 
         result
