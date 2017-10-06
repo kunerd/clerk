@@ -106,6 +106,15 @@ pub enum Level {
     High,
 }
 
+impl From<WriteMode> for (Level, u8) {
+    fn from(mode: WriteMode) -> Self {
+        match mode {
+            WriteMode::Command(value) => (Level::Low, value),
+            WriteMode::Data(value) => (Level::High, value)
+        }
+    }
+}
+
 /// The `Delay` trait is used to adapt the timing to the specific hardware and must be implemented
 /// by the libary user.
 pub trait Delay {
@@ -350,18 +359,6 @@ where
         self.write_4bit(Nibble::Lower(byte));
     }
 
-    fn write_data(&self, value: u8) {
-        self.register_select.set_level(Level::High).unwrap();
-
-        self.send_byte(value);
-    }
-
-    fn write_command(&self, cmd: u8) {
-        self.register_select.set_level(Level::Low).unwrap();
-
-        self.send_byte(cmd);
-    }
-
     fn write_byte(&self, mode: WriteMode) {
         self.data4.set_direction(Direction::Out);
         self.data5.set_direction(Direction::Out);
@@ -370,10 +367,16 @@ where
 
         self.read.set_level(Level::Low).unwrap();
 
-        match mode {
-            WriteMode::Data(value) => self.write_data(value),
-            WriteMode::Command(cmd) => self.write_command(cmd),
-        }
+        let (level, value) = mode.into();
+        self.register_select.set_level(level).unwrap();
+
+        self.send_byte(value);
+    }
+
+    /// Writes the given byte to data or character generator RAM, depending on the previous
+    /// seek operation.
+    pub fn write(&self, c: u8) {
+        self.write_byte(WriteMode::Data(c));
     }
 
     fn read_single_nibble(&self) -> u8 {
