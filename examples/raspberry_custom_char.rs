@@ -49,7 +49,6 @@ fn main() {
         println!("{:#08b}", value)
     }
 
-    let msg = [0];
     lcd.seek(SeekFrom::Home(0));
-    lcd.write_message(str::from_utf8(&msg).unwrap());
+    lcd.write(0);
 }
