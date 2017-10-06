@@ -4,10 +4,12 @@
 
 Hardware independent HD44780 LCD library written in Rust
 
-## Current state
-This library is in an very early implementation state, so it is likely that
-interfaces will change. Also there is no error handling currently.
+The library's goal is to provide a high level interface to control HD44780 compliant LCD displays. It does not rely on `std` and therefore it should work on PCs as well as on embedded devices.
 
+## Current state
+This library is actively maintained and most of the features described in the HD44780 spec are implemented. The current work mainly concentrates on providing a first stable version.
+
+### Features
 - [x] Clear display
 - [ ] Return home (but is possible via `seek()`)
 - [x] Entry mode settings
@@ -20,5 +22,21 @@ interfaces will change. Also there is no error handling currently.
 - [x] Read/write CGRAM (create custom characters)
 - [x] Read busy flag and cursor address
 
-## Documentation
+### TODOs
+- unit and integration testing
+- error handling
+- feature flags to allow additional (high level) functions
+- conditional compilation for different hardware variants (read-only, read-write)
+- test on different targets (currently only tested on Raspberry Pi)
+
+### Documentation
 https://docs.rs/clerk
+
+## Getting help
+Just [create a ticket](https://github.com/kunerd/clerk/issues/new).
+
+## Contribution
+All kinds of contributions are highly welcome (see TODOs). [Create tickets](https://github.com/kunerd/clerk/issues/new) with feature requests, design ideas and so on. You can also find me on Mozillas IRC channel #rust.
+
+## License
+This project is licensed under MIT license ([LICENSE](docs/CONTRIBUTING.md) or https://opensource.org/licenses/MIT)
