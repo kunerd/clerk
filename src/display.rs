@@ -376,32 +376,8 @@ where
         }
     }
 
-    fn read_raw_byte(&self, mode: ReadMode) -> u8 {
+    fn read_single_nibble(&self) -> u8 {
         let mut result = 0u8;
-
-        self.data4.set_direction(Direction::In);
-        self.data5.set_direction(Direction::In);
-        self.data6.set_direction(Direction::In);
-        self.data7.set_direction(Direction::In);
-
-        self.read.set_level(Level::High).unwrap();
-
-        match mode {
-            ReadMode::Data => self.register_select.set_level(Level::High),
-            ReadMode::BusyFlag => self.register_select.set_level(Level::Low),
-        }.unwrap();
-
-        D::delay_ns(D::ADDRESS_SETUP_TIME);
-        self.enable.set_level(Level::High).unwrap();
-
-        result |= self.data7.get_value() << 7;
-        result |= self.data6.get_value() << 6;
-        result |= self.data5.get_value() << 5;
-        result |= self.data4.get_value() << 4;
-
-        D::delay_ns(D::ENABLE_PULSE_WIDTH);
-        self.enable.set_level(Level::Low).unwrap();
-        D::delay_ns(D::DATA_HOLD_TIME);
 
         D::delay_ns(D::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High).unwrap();
@@ -416,6 +392,32 @@ where
         D::delay_ns(D::DATA_HOLD_TIME);
 
         result
+    }
+
+    fn receive_byte(&self) -> u8 {
+        let upper = self.read_single_nibble();
+        let lower = self.read_single_nibble();
+
+        let mut result = upper << 4;
+        result |= lower & 0x0f;
+
+        result
+    }
+
+    fn read_raw_byte(&self, mode: ReadMode) -> u8 {
+        self.data4.set_direction(Direction::In);
+        self.data5.set_direction(Direction::In);
+        self.data6.set_direction(Direction::In);
+        self.data7.set_direction(Direction::In);
+
+        self.read.set_level(Level::High).unwrap();
+
+        match mode {
+            ReadMode::Data => self.register_select.set_level(Level::High),
+            ReadMode::BusyFlag => self.register_select.set_level(Level::Low),
+        }.unwrap();
+
+        self.receive_byte()
     }
 
     /// Reads a single byte from data RAM.
