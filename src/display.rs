@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 // TODO replace by configurable value
 use super::FIRST_LINE_ADDRESS;
-use super::{DisplayControlBuilder, EntryModeBuilder};
+use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder};
 
 const LCD_WIDTH: usize = 16;
 
@@ -76,7 +76,7 @@ pub enum SeekFrom<T: Into<u8>> {
     Home(u8),
     /// Sets the cursor to the current position plus the specified number of bytes.
     Current(u8),
-    /// Sets the cursor position to the provides line plus the specified number of bytes.
+    /// Sets the cursor position to the given line plus the specified number of bytes.
     Line { line: T, bytes: u8 },
 }
 
@@ -110,7 +110,7 @@ impl From<WriteMode> for (Level, u8) {
     fn from(mode: WriteMode) -> Self {
         match mode {
             WriteMode::Command(value) => (Level::Low, value),
-            WriteMode::Data(value) => (Level::High, value)
+            WriteMode::Data(value) => (Level::High, value),
         }
     }
 }
@@ -193,9 +193,12 @@ where
     U: Into<u8>,
     D: Delay,
 {
+    const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
+    const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
+
     /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
     pub fn from_pins(pins: DisplayPins) -> Display<T, U, D> {
-        let lcd = Display {
+        Display {
             register_select: T::from(pins.register_select),
             enable: T::from(pins.enable),
             read: T::from(pins.read),
@@ -206,31 +209,41 @@ where
             cursor_address: 0,
             _line_marker: PhantomData,
             _delay_marker: PhantomData,
-        };
+        }
+    }
 
-        lcd.register_select.init();
-        lcd.read.init();
-        lcd.enable.init();
-        lcd.data4.init();
-        lcd.data5.init();
-        lcd.data6.init();
-        lcd.data7.init();
+    fn init_pins(&self) {
+        self.register_select.init();
+        self.read.init();
+        self.enable.init();
+        self.data4.init();
+        self.data5.init();
+        self.data6.init();
+        self.data7.init();
+    }
 
-        lcd.read.set_level(Level::Low).unwrap();
+    fn init_by_instruction(&self, function_set: WriteMode) {
+        self.write_byte(Self::FIRST_4BIT_INIT_INSTRUCTION);
+        self.write_byte(Self::SECOND_4BIT_INIT_INSTRUCTION);
 
-        // FIXME remove magic numbers
-        // Initializing by Instruction
-        lcd.write_byte(WriteMode::Command(0x33));
-        lcd.write_byte(WriteMode::Command(0x32));
-        // FuctionSet: Data length 4bit + 2 lines
-        lcd.write_byte(WriteMode::Command(0x28));
-        // DisplayControl: Display on, Cursor off + cursor blinking off
-        lcd.write_byte(WriteMode::Command(0x0C));
-        // EntryModeSet: Cursor move direction inc + no display shift
-        lcd.write_byte(WriteMode::Command(0x06));
-        lcd.clear(); // ClearDisplay
+        self.write_byte(function_set);
 
-        lcd
+        self.clear();
+    }
+
+    pub fn init<F>(&self, f: F)
+    where
+        F: Fn(&mut FunctionSetBuilder),
+    {
+        self.init_pins();
+
+        let mut builder = FunctionSetBuilder::default();
+        f(&mut builder);
+
+        let cmd = builder.build_command();
+        let cmd = WriteMode::Command(cmd);
+
+        self.init_by_instruction(cmd);
     }
 
     /// Sets the entry mode of the display using the builder given in the closure.
