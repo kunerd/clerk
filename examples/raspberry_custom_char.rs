@@ -22,6 +22,7 @@ fn main() {
     };
 
     let mut lcd: Display<ExternPin, DefaultLines, CustomDelay> = Display::from_pins(pins);
+    lcd.init(|_| {});
 
     lcd.set_display_control(|e| {
         e.set_display(DisplayState::On)
