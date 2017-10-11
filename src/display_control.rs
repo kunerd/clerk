@@ -92,7 +92,7 @@ impl DisplayControlBuilder {
         self
     }
 
-    pub fn build_command(&self) -> u8 {
+    pub(crate) fn build_command(&self) -> u8 {
         let mut cmd = DISPLAY_CONTROL;
 
         cmd |= DisplayControlFlags::from(self.display);

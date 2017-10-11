@@ -67,7 +67,7 @@ impl EntryModeBuilder {
         self
     }
 
-    pub fn build_command(&self) -> u8 {
+    pub(crate) fn build_command(&self) -> u8 {
         let mut cmd = ENTRY_MODE;
 
         cmd |= EntryModeFlags::from(self.move_direction);

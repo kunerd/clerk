@@ -231,14 +231,8 @@ where
         self.clear();
     }
 
-    pub fn init<F>(&self, f: F)
-    where
-        F: Fn(&mut FunctionSetBuilder),
-    {
+    pub fn init(&self, builder: &FunctionSetBuilder) {
         self.init_pins();
-
-        let mut builder = FunctionSetBuilder::default();
-        f(&mut builder);
 
         let cmd = builder.build_command();
         let cmd = WriteMode::Command(cmd);
@@ -246,24 +240,16 @@ where
         self.init_by_instruction(cmd);
     }
 
-    /// Sets the entry mode of the display using the builder given in the closure.
-    pub fn set_entry_mode<F>(&self, f: F)
-    where
-        F: Fn(&mut EntryModeBuilder),
-    {
-        let mut builder = EntryModeBuilder::default();
-        f(&mut builder);
-        self.write_byte(WriteMode::Command(builder.build_command()));
+    /// Sets the entry mode of the display.
+    pub fn set_entry_mode(&self, builder: &EntryModeBuilder) {
+        let cmd = WriteMode::Command(builder.build_command());
+        self.write_byte(cmd);
     }
 
-    /// Sets the display control settings using the builder given in the closure.
-    pub fn set_display_control<F>(&self, f: F)
-    where
-        F: Fn(&mut DisplayControlBuilder),
-    {
-        let mut builder = DisplayControlBuilder::default();
-        f(&mut builder);
-        self.write_byte(WriteMode::Command(builder.build_command()));
+    /// Sets the display control settings.
+    pub fn set_display_control(&self, builder: &DisplayControlBuilder) {
+        let cmd = WriteMode::Command(builder.build_command());
+        self.write_byte(cmd);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
