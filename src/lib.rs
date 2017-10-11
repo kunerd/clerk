@@ -16,9 +16,8 @@ mod lines;
 use lines::FIRST_LINE_ADDRESS;
 
 pub use lines::DefaultLines;
-pub use display_control::DisplayControlBuilder;
+pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
-pub use display_control::{CursorBlinking, CursorState, DisplayState};
 pub use display::{Delay, Direction, Display, DisplayHardwareLayer, DisplayPins, Level, SeekFrom,
                   ShiftTo};

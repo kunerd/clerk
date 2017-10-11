@@ -1,8 +1,8 @@
 extern crate clerk;
 extern crate sysfs_gpio;
 
-use clerk::{CursorBlinking, CursorState, DefaultLines, Display, DisplayPins, DisplayState,
-            SeekFrom};
+use clerk::{CursorBlinking, CursorState, DefaultLines, Display, DisplayControlBuilder,
+            DisplayPins, DisplayState, FunctionSetBuilder, LineNumber, SeekFrom};
 
 mod utils;
 use utils::ExternPin;
@@ -20,13 +20,15 @@ fn main() {
     };
 
     let mut lcd: Display<ExternPin, DefaultLines, CustomDelay> = Display::from_pins(pins);
-    lcd.init(|_| {});
 
-    lcd.set_display_control(|e| {
-        e.set_display(DisplayState::On)
+    lcd.init(FunctionSetBuilder::default().set_line_number(LineNumber::Two));
+
+    lcd.set_display_control(
+        DisplayControlBuilder::default()
+            .set_display(DisplayState::On)
             .set_cursor(CursorState::Off)
-            .set_cursor_blinking(CursorBlinking::On);
-    });
+            .set_cursor_blinking(CursorBlinking::On),
+    );
 
     lcd.write_message("Hello");
 
