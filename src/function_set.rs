@@ -113,3 +113,88 @@ impl Default for FunctionSetBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const FUNCTION_SET_FLAG:    u8 = 0b0010_0000;
+    const DATA_LENGTH_FLAG:     u8 = 0b0001_0000;
+    const LINE_NUMBER_FLAG:     u8 = 0b0000_1000;
+    const CHARACTER_FONT_FLAG:  u8 = 0b0000_0100;
+
+    fn has_bit(value: u8, bitmask: u8) -> bool {
+        value & bitmask == bitmask
+    }
+
+    #[test]
+    fn function_set_flag() {
+        let b = FunctionSetBuilder::default();
+        let cmd = b.build_command();
+
+        assert!( has_bit(cmd, FUNCTION_SET_FLAG) );
+    }
+
+    #[test]
+    fn default_data_length() {
+        let b = FunctionSetBuilder::default();
+        let cmd = b.build_command();
+
+        assert_eq!( has_bit(cmd, DATA_LENGTH_FLAG), false );
+    }
+
+    #[test]
+    fn set_data_length() {
+        let mut b = FunctionSetBuilder::default();
+
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, DATA_LENGTH_FLAG), false);
+
+        b.set_data_length(DataLength::EightBit);
+
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, DATA_LENGTH_FLAG) );
+    }
+
+    #[test]
+    fn default_line_number() {
+        let b = FunctionSetBuilder::default();
+        let cmd = b.build_command();
+
+        assert_eq!( has_bit(cmd, LINE_NUMBER_FLAG), false );
+    }
+
+    #[test]
+    fn set_line_number() {
+        let mut b = FunctionSetBuilder::default();
+
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, LINE_NUMBER_FLAG), false);
+
+        b.set_line_number(LineNumber::Two);
+
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, LINE_NUMBER_FLAG) );
+    }
+
+    #[test]
+    fn default_character_font() {
+        let b = FunctionSetBuilder::default();
+        let cmd = b.build_command();
+
+        assert_eq!( has_bit(cmd, CHARACTER_FONT_FLAG), false );
+    }
+
+    #[test]
+    fn set_character_font() {
+        let mut b = FunctionSetBuilder::default();
+
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, CHARACTER_FONT_FLAG), false);
+
+        b.set_character_font(CharacterFont::Dots5By10);
+
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, CHARACTER_FONT_FLAG) );
+    }
+}
