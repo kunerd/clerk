@@ -122,3 +122,88 @@ impl Default for DisplayControlBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DISPLAY_CONTROL_FLAG: u8 = 0b0000_1000;
+    const DISPLAY_STATE_FLAG: u8   = 0b0000_0100;
+    const CURSOR_STATE_FLAG: u8    = 0b0000_0010;
+    const CURSOR_BLINKING_FLAG: u8 = 0b0000_0001;
+
+    fn has_bit(value: u8, bitmask: u8) -> bool {
+        value & bitmask == bitmask
+    }
+
+    #[test]
+    fn display_control_flag() {
+        let b = DisplayControlBuilder::default();
+        let cmd = b.build_command();
+
+        assert!( has_bit(cmd, DISPLAY_CONTROL_FLAG) );
+    }
+
+    #[test]
+    fn default_display_state(){
+        let b = DisplayControlBuilder::default();
+        let cmd = b.build_command();
+
+        assert!( has_bit(cmd, DISPLAY_STATE_FLAG) );
+    }
+
+    #[test]
+    fn set_display() {
+        let mut b = DisplayControlBuilder::default();
+
+        b.set_display(DisplayState::On);
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, DISPLAY_STATE_FLAG) );
+
+        b.set_display(DisplayState::Off);
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, DISPLAY_STATE_FLAG), false);
+    }
+
+    #[test]
+    fn default_cursor_state(){
+        let b = DisplayControlBuilder::default();
+        let cmd = b.build_command();
+
+        assert_eq!( has_bit(cmd, CURSOR_STATE_FLAG), false );
+    }
+
+    #[test]
+    fn set_cursor() {
+        let mut b = DisplayControlBuilder::default();
+
+        b.set_cursor(CursorState::On);
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, CURSOR_STATE_FLAG) );
+
+        b.set_cursor(CursorState::Off);
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, CURSOR_STATE_FLAG), false);
+    }
+
+    #[test]
+    fn default_cursor_blinking(){
+        let b = DisplayControlBuilder::default();
+        let cmd = b.build_command();
+
+        assert_eq!( has_bit(cmd, CURSOR_BLINKING_FLAG), false );
+    }
+
+    #[test]
+    fn set_cursor_blinking() {
+        let mut b = DisplayControlBuilder::default();
+
+        b.set_cursor_blinking(CursorBlinking::On);
+        let cmd = b.build_command();
+        assert!( has_bit(cmd, CURSOR_BLINKING_FLAG) );
+
+        b.set_cursor_blinking(CursorBlinking::Off);
+        let cmd = b.build_command();
+        assert_eq!( has_bit(cmd, CURSOR_STATE_FLAG), false);
+    }
+}
