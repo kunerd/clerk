@@ -98,9 +98,9 @@ impl Default for EntryModeBuilder {
 mod tests {
     use super::*;
 
-    const ENTRY_MODE_FLAG:      u8 = 0b0000_0100;
-    const MOVE_DIRECTION_FLAG:  u8 = 0b0000_0010;
-    const DISPLAY_SHIFT_FLAG:   u8 = 0b0000_0001;
+    const ENTRY_MODE_FLAG: u8 = 0b0000_0100;
+    const MOVE_DIRECTION_FLAG: u8 = 0b0000_0010;
+    const DISPLAY_SHIFT_FLAG: u8 = 0b0000_0001;
 
     fn has_bit(value: u8, bitmask: u8) -> bool {
         value & bitmask == bitmask
@@ -111,7 +111,7 @@ mod tests {
         let b = EntryModeBuilder::default();
         let cmd = b.build_command();
 
-        assert!( has_bit(cmd, ENTRY_MODE_FLAG) );
+        assert!(has_bit(cmd, ENTRY_MODE_FLAG));
     }
 
     #[test]
@@ -119,7 +119,7 @@ mod tests {
         let b = EntryModeBuilder::default();
         let cmd = b.build_command();
 
-        assert!( has_bit(cmd, MOVE_DIRECTION_FLAG) );
+        assert!(has_bit(cmd, MOVE_DIRECTION_FLAG));
     }
 
     #[test]
@@ -127,12 +127,12 @@ mod tests {
         let mut b = EntryModeBuilder::default();
 
         let cmd = b.build_command();
-        assert!( has_bit(cmd, MOVE_DIRECTION_FLAG) );
+        assert!(has_bit(cmd, MOVE_DIRECTION_FLAG));
 
         b.set_move_direction(MoveDirection::Decrement);
 
         let cmd = b.build_command();
-        assert_eq!( has_bit(cmd, MOVE_DIRECTION_FLAG), false);
+        assert_eq!(has_bit(cmd, MOVE_DIRECTION_FLAG), false);
     }
 
     #[test]
@@ -140,7 +140,7 @@ mod tests {
         let b = EntryModeBuilder::default();
         let cmd = b.build_command();
 
-        assert_eq!( has_bit(cmd, DISPLAY_SHIFT_FLAG), false );
+        assert_eq!(has_bit(cmd, DISPLAY_SHIFT_FLAG), false);
     }
 
     #[test]
@@ -148,11 +148,11 @@ mod tests {
         let mut b = EntryModeBuilder::default();
 
         let cmd = b.build_command();
-        assert_eq!( has_bit(cmd, DISPLAY_SHIFT_FLAG), false );
+        assert_eq!(has_bit(cmd, DISPLAY_SHIFT_FLAG), false);
 
         b.set_display_shift(DisplayShift::On);
 
         let cmd = b.build_command();
-        assert!( has_bit(cmd, DISPLAY_SHIFT_FLAG));
+        assert!(has_bit(cmd, DISPLAY_SHIFT_FLAG));
     }
 }
