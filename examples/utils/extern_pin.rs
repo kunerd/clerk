@@ -4,8 +4,8 @@ use clerk::{Direction, DisplayHardwareLayer, Level};
 
 pub struct ExternPin(sysfs_gpio::Pin);
 
-impl From<u64> for ExternPin {
-    fn from(i: u64) -> Self {
+impl ExternPin {
+    pub fn new(i: u64) -> Self {
         ExternPin(sysfs_gpio::Pin::new(i))
     }
 }
@@ -29,13 +29,13 @@ impl DisplayHardwareLayer for ExternPin {
         self.0.set_direction(native_direction).unwrap();
     }
 
-    fn set_level(&self, level: Level) -> Result<(), ()> {
+    fn set_level(&self, level: Level) {
         let value = match level {
             Level::High => 1,
             Level::Low => 0,
         };
 
-        self.0.set_value(value).map_err(|_| ())
+        self.0.set_value(value).unwrap();
     }
 
     fn get_value(&self) -> u8 {

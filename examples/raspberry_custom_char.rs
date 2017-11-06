@@ -12,13 +12,13 @@ use utils::CustomDelay;
 
 fn main() {
     let pins = DisplayPins {
-        register_select: 2,
-        read: 3,
-        enable: 4,
-        data4: 16,
-        data5: 19,
-        data6: 26,
-        data7: 20,
+        register_select: ExternPin::new(2),
+        read: ExternPin::new(3),
+        enable: ExternPin::new(4),
+        data4: ExternPin::new(16),
+        data5: ExternPin::new(19),
+        data6: ExternPin::new(26),
+        data7: ExternPin::new(20),
     };
 
     let mut lcd: Display<ExternPin, DefaultLines, CustomDelay> = Display::from_pins(pins);

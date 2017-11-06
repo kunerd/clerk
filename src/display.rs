@@ -81,6 +81,7 @@ pub enum SeekFrom<T: Into<u8>> {
 }
 
 /// Enumeration of possible data directions of a pin.
+#[derive(Debug, PartialEq)]
 pub enum Direction {
     In,
     Out,
@@ -101,6 +102,7 @@ impl From<Nibble> for u8 {
 }
 
 /// Enumeration of possible levels of a pin.
+#[derive(Debug, PartialEq)]
 pub enum Level {
     Low,
     High,
@@ -149,20 +151,22 @@ pub trait DisplayHardwareLayer {
 
     fn set_direction(&self, Direction);
     /// Sets a value on an I/O pin.
-    // TODO need a way to let the user set up how levels are interpreted by the hardware
-    fn set_level(&self, Level) -> Result<(), ()>;
+    fn set_level(&self, Level);
 
     fn get_value(&self) -> u8;
 }
 
-pub struct DisplayPins {
-    pub register_select: u64,
-    pub read: u64,
-    pub enable: u64,
-    pub data4: u64,
-    pub data5: u64,
-    pub data6: u64,
-    pub data7: u64,
+pub struct DisplayPins<T>
+where
+    T: DisplayHardwareLayer,
+{
+    pub register_select: T,
+    pub read: T,
+    pub enable: T,
+    pub data4: T,
+    pub data5: T,
+    pub data6: T,
+    pub data7: T,
 }
 
 /// A HD44780 compliant display.
@@ -171,17 +175,11 @@ pub struct DisplayPins {
 /// liquid crystal display (LCD).
 pub struct Display<T, U, D>
 where
-    T: From<u64> + DisplayHardwareLayer,
+    T: DisplayHardwareLayer,
     U: Into<u8>,
     D: Delay,
 {
-    register_select: T,
-    read: T,
-    enable: T,
-    data4: T,
-    data5: T,
-    data6: T,
-    data7: T,
+    pins: DisplayPins<T>,
     cursor_address: u8,
     _line_marker: PhantomData<U>,
     _delay_marker: PhantomData<D>,
@@ -189,7 +187,7 @@ where
 
 impl<T, U, D> Display<T, U, D>
 where
-    T: From<u64> + DisplayHardwareLayer,
+    T: DisplayHardwareLayer,
     U: Into<u8>,
     D: Delay,
 {
@@ -197,15 +195,9 @@ where
     const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
 
     /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
-    pub fn from_pins(pins: DisplayPins) -> Display<T, U, D> {
+    pub fn from_pins(pins: DisplayPins<T>) -> Display<T, U, D> {
         Display {
-            register_select: T::from(pins.register_select),
-            enable: T::from(pins.enable),
-            read: T::from(pins.read),
-            data4: T::from(pins.data4),
-            data5: T::from(pins.data5),
-            data6: T::from(pins.data6),
-            data7: T::from(pins.data7),
+            pins: pins,
             cursor_address: 0,
             _line_marker: PhantomData,
             _delay_marker: PhantomData,
@@ -213,13 +205,20 @@ where
     }
 
     fn init_pins(&self) {
-        self.register_select.init();
-        self.read.init();
-        self.enable.init();
-        self.data4.init();
-        self.data5.init();
-        self.data6.init();
-        self.data7.init();
+        self.pins.register_select.init();
+        self.pins.register_select.set_direction(Direction::Out);
+
+        self.pins.read.init();
+        self.pins.read.set_direction(Direction::Out);
+
+        self.pins.enable.init();
+        self.pins.enable.set_direction(Direction::Out);
+
+        // TODO maybe not needed because of pin state config
+        self.pins.data4.init();
+        self.pins.data5.init();
+        self.pins.data6.init();
+        self.pins.data7.init();
     }
 
     fn init_by_instruction(&self, function_set: WriteMode) {
@@ -327,29 +326,35 @@ where
     fn write_4bit(&self, nibble: Nibble) {
         let value: u8 = nibble.into();
 
-        self.data4.set_level(Level::Low).unwrap();
-        self.data5.set_level(Level::Low).unwrap();
-        self.data6.set_level(Level::Low).unwrap();
-        self.data7.set_level(Level::Low).unwrap();
-
         D::delay_ns(D::ADDRESS_SETUP_TIME);
-        self.enable.set_level(Level::High).unwrap();
+        self.pins.enable.set_level(Level::High);
 
         if value & 0x01 == 0x01 {
-            self.data4.set_level(Level::High).unwrap();
+            self.pins.data4.set_level(Level::High);
+        } else {
+            self.pins.data4.set_level(Level::Low);
         }
+
         if value & 0x02 == 0x02 {
-            self.data5.set_level(Level::High).unwrap();
+            self.pins.data5.set_level(Level::High);
+        } else {
+            self.pins.data5.set_level(Level::Low);
         }
+
         if value & 0x04 == 0x04 {
-            self.data6.set_level(Level::High).unwrap();
+            self.pins.data6.set_level(Level::High);
+        } else {
+            self.pins.data6.set_level(Level::Low);
         }
+
         if value & 0x08 == 0x08 {
-            self.data7.set_level(Level::High).unwrap();
+            self.pins.data7.set_level(Level::High);
+        } else {
+            self.pins.data7.set_level(Level::Low);
         }
 
         D::delay_ns(D::ENABLE_PULSE_WIDTH);
-        self.enable.set_level(Level::Low).unwrap();
+        self.pins.enable.set_level(Level::Low);
         D::delay_ns(D::DATA_HOLD_TIME);
     }
 
@@ -359,22 +364,23 @@ where
     }
 
     fn write_byte(&self, mode: WriteMode) {
-        self.data4.set_direction(Direction::Out);
-        self.data5.set_direction(Direction::Out);
-        self.data6.set_direction(Direction::Out);
-        self.data7.set_direction(Direction::Out);
+        self.pins.data4.set_direction(Direction::Out);
+        self.pins.data5.set_direction(Direction::Out);
+        self.pins.data6.set_direction(Direction::Out);
+        self.pins.data7.set_direction(Direction::Out);
 
-        self.read.set_level(Level::Low).unwrap();
+        self.pins.read.set_level(Level::Low);
 
         let (level, value) = mode.into();
-        self.register_select.set_level(level).unwrap();
+        self.pins.register_select.set_level(level);
 
         self.send_byte(value);
     }
 
     /// Writes the given byte to data or character generator RAM, depending on the previous
     /// seek operation.
-    pub fn write(&self, c: u8) {
+    pub fn write(&mut self, c: u8) {
+        self.cursor_address += 1;
         self.write_byte(WriteMode::Data(c));
     }
 
@@ -382,15 +388,15 @@ where
         let mut result = 0u8;
 
         D::delay_ns(D::ADDRESS_SETUP_TIME);
-        self.enable.set_level(Level::High).unwrap();
+        self.pins.enable.set_level(Level::High);
 
-        result |= self.data7.get_value() << 3;
-        result |= self.data6.get_value() << 2;
-        result |= self.data5.get_value() << 1;
-        result |= self.data4.get_value();
+        result |= self.pins.data7.get_value() << 3;
+        result |= self.pins.data6.get_value() << 2;
+        result |= self.pins.data5.get_value() << 1;
+        result |= self.pins.data4.get_value();
 
         D::delay_ns(D::ENABLE_PULSE_WIDTH);
-        self.enable.set_level(Level::Low).unwrap();
+        self.pins.enable.set_level(Level::Low);
         D::delay_ns(D::DATA_HOLD_TIME);
 
         result
@@ -407,17 +413,17 @@ where
     }
 
     fn read_raw_byte(&self, mode: ReadMode) -> u8 {
-        self.data4.set_direction(Direction::In);
-        self.data5.set_direction(Direction::In);
-        self.data6.set_direction(Direction::In);
-        self.data7.set_direction(Direction::In);
+        self.pins.data4.set_direction(Direction::In);
+        self.pins.data5.set_direction(Direction::In);
+        self.pins.data6.set_direction(Direction::In);
+        self.pins.data7.set_direction(Direction::In);
 
-        self.read.set_level(Level::High).unwrap();
+        self.pins.read.set_level(Level::High);
 
         match mode {
-            ReadMode::Data => self.register_select.set_level(Level::High),
-            ReadMode::BusyFlag => self.register_select.set_level(Level::Low),
-        }.unwrap();
+            ReadMode::Data => self.pins.register_select.set_level(Level::High),
+            ReadMode::BusyFlag => self.pins.register_select.set_level(Level::Low),
+        };
 
         self.receive_byte()
     }
@@ -443,25 +449,11 @@ where
     /// seek operation.
     pub fn write_message(&mut self, msg: &str) {
         for c in msg.as_bytes().iter().take(LCD_WIDTH) {
-            self.cursor_address += 1;
-
-            self.write_byte(WriteMode::Data(*c));
+            self.write(*c);
         }
     }
-}
 
-impl<T, U, D> Drop for Display<T, U, D>
-where
-    T: From<u64> + DisplayHardwareLayer,
-    U: Into<u8>,
-    D: Delay,
-{
-    fn drop(&mut self) {
-        self.register_select.cleanup();
-        self.enable.cleanup();
-        self.data4.cleanup();
-        self.data5.cleanup();
-        self.data6.cleanup();
-        self.data7.cleanup();
+    pub fn get_pins(self) -> DisplayPins<T> {
+        self.pins
     }
 }
