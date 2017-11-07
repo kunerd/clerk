@@ -1,8 +1,6 @@
 use core::marker::PhantomData;
 
-// TODO replace by configurable value
-use super::FIRST_LINE_ADDRESS;
-use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder};
+use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
 
 const LCD_WIDTH: usize = 16;
 
@@ -176,7 +174,7 @@ where
 pub struct Display<T, U, D>
 where
     T: DisplayHardwareLayer,
-    U: Into<u8>,
+    U: Into<u8> + Home,
     D: Delay,
 {
     pins: DisplayPins<T>,
@@ -188,7 +186,7 @@ where
 impl<T, U, D> Display<T, U, D>
 where
     T: DisplayHardwareLayer,
-    U: Into<u8>,
+    U: Into<u8> + Home,
     D: Delay,
 {
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
@@ -301,7 +299,7 @@ where
         let mut cmd = ram_type.into();
 
         let (start, bytes) = match pos {
-            SeekFrom::Home(bytes) => (FIRST_LINE_ADDRESS, bytes),
+            SeekFrom::Home(bytes) => (U::FIRST_LINE_ADDRESS, bytes),
             SeekFrom::Current(bytes) => (self.cursor_address, bytes),
             SeekFrom::Line { line, bytes } => (line.into(), bytes),
         };

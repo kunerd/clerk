@@ -13,9 +13,7 @@ mod display_control;
 mod function_set;
 mod lines;
 
-use lines::FIRST_LINE_ADDRESS;
-
-pub use lines::DefaultLines;
+pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
