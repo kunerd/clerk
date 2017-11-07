@@ -13,7 +13,6 @@ impl ExternPin {
 impl DisplayHardwareLayer for ExternPin {
     fn init(&self) {
         self.0.export().unwrap();
-        self.0.set_direction(sysfs_gpio::Direction::Out).unwrap();
     }
 
     fn cleanup(&self) {
