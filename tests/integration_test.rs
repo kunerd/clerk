@@ -2,15 +2,35 @@ extern crate clerk;
 extern crate itertools;
 
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use itertools::{multizip, Itertools};
 
 use clerk::{DefaultLines, Delay, Direction, Display, DisplayControlBuilder, DisplayHardwareLayer,
             DisplayPins, EntryModeBuilder, FunctionSetBuilder, Level, SeekFrom, ShiftTo};
 
-#[derive(Default)]
 pub struct PinMock {
     levels: RefCell<Vec<Level>>,
     directions: RefCell<Vec<Direction>>,
+    values: Option<RefCell<VecDeque<u8>>>
+}
+
+impl Default for PinMock {
+    fn default() -> Self {
+        PinMock {
+            values: Some(RefCell::new(VecDeque::new())),
+            levels: RefCell::new(vec![]),
+            directions: RefCell::new(vec![]),
+        }
+    }
+}
+
+impl PinMock {
+    pub fn set_value(&mut self, value: u8) {
+        match self.values {
+            Some(ref mut v) => v.borrow_mut().push_back(value),
+            None => ()
+        }
+    }
 }
 
 impl DisplayHardwareLayer for PinMock {
@@ -31,7 +51,10 @@ impl DisplayHardwareLayer for PinMock {
     }
 
     fn get_value(&self) -> u8 {
-        panic!("Not implemented.")
+        match self.values {
+            Some(ref v) => v.borrow_mut().pop_front().unwrap(),
+            None => panic!("No return value specified for current test.")
+        }
     }
 }
 
@@ -310,6 +333,70 @@ fn test_write_message_increments_address_counter() {
     let pins = lcd.get_pins();
     let outp = flat_pins(pins);
     assert_eq!(outp[2], to_level_slice(0b1000_0010));
+}
+
+#[test]
+fn test_read() {
+    let mut pins = DisplayPins {
+        register_select: PinMock::default(),
+        read: PinMock::default(),
+        enable: PinMock::default(),
+        data4: PinMock::default(),
+        data5: PinMock::default(),
+        data6: PinMock::default(),
+        data7: PinMock::default(),
+    };
+
+    let expected = 42;
+    set_read_value(&mut pins, expected);
+
+    let mut lcd = Display::<PinMock, DefaultLines, CustomDelayMock>::from_pins(pins);
+
+    let input = lcd.read_byte();
+
+    assert_eq!(input, expected);
+}
+
+#[test]
+fn test_read_increments_address_counter() {
+    let mut pins = DisplayPins {
+        register_select: PinMock::default(),
+        read: PinMock::default(),
+        enable: PinMock::default(),
+        data4: PinMock::default(),
+        data5: PinMock::default(),
+        data6: PinMock::default(),
+        data7: PinMock::default(),
+    };
+
+    set_read_value(&mut pins, 4);
+    set_read_value(&mut pins, 2);
+
+    let mut lcd = Display::<PinMock, DefaultLines, CustomDelayMock>::from_pins(pins);
+
+    lcd.read_byte();
+    lcd.seek(SeekFrom::Current(0));
+
+    lcd.read_byte();
+    lcd.seek(SeekFrom::Current(0));
+
+
+    let pins = lcd.get_pins();
+    let outp = flat_pins(pins);
+    assert_eq!(outp[0], to_level_slice(0b1000_0001));
+    assert_eq!(outp[1], to_level_slice(0b1000_0010));
+}
+
+fn set_read_value(pins: &mut DisplayPins<PinMock>, value: u8) {
+    pins.data4.set_value((value & 0b0001_0000) >> 4);
+    pins.data5.set_value((value & 0b0010_0000) >> 5);
+    pins.data6.set_value((value & 0b0100_0000) >> 6);
+    pins.data7.set_value((value & 0b1000_0000) >> 7);
+
+    pins.data4.set_value(value & 0b0000_0001);
+    pins.data5.set_value((value & 0b0000_0010) >> 1);
+    pins.data6.set_value((value & 0b0000_0100) >> 2);
+    pins.data7.set_value((value & 0b0000_1000) >> 3);
 }
 
 fn flat_pins(pins: DisplayPins<PinMock>) -> Vec<Vec<Level>> {
