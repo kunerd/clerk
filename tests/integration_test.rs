@@ -132,8 +132,6 @@ fn test_set_display_control() {
 }
 
 #[test]
-#[ignore]
-// TODO: needs clarification what happens on real hardware
 fn test_shift_cursor_left() {
     let mut lcd = setup_display();
 
@@ -146,6 +144,18 @@ fn test_shift_cursor_left() {
 }
 
 #[test]
+fn test_shift_cursor_left_with_zero_offset() {
+    let mut lcd = setup_display();
+
+    lcd.shift_cursor(ShiftTo::Left(0));
+
+    let pins = lcd.get_pins();
+    let outp = flat_pins(pins);
+
+    assert_eq!(outp.len(), 0);
+}
+
+#[test]
 fn test_shift_cursor_right() {
     let mut lcd = setup_display();
 
@@ -155,6 +165,30 @@ fn test_shift_cursor_right() {
     let outp = flat_pins(pins);
 
     assert_eq!(outp[0], to_level_slice(0b0001_0100));
+}
+
+#[test]
+fn test_shift_cursor_right_multiple() {
+    let mut lcd = setup_display();
+
+    lcd.shift_cursor(ShiftTo::Right(2));
+    let pins = lcd.get_pins();
+    let outp = flat_pins(pins);
+
+    assert_eq!(outp[0], to_level_slice(0b0001_0100));
+    assert_eq!(outp[1], to_level_slice(0b0001_0100));
+}
+
+#[test]
+fn test_shift_cursor_right_with_zero_offset() {
+    let mut lcd = setup_display();
+
+    lcd.shift_cursor(ShiftTo::Right(0));
+
+    let pins = lcd.get_pins();
+    let outp = flat_pins(pins);
+
+    assert_eq!(outp.len(), 0);
 }
 
 #[test]

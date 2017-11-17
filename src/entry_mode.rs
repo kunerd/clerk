@@ -20,8 +20,8 @@ pub enum MoveDirection {
 impl From<MoveDirection> for EntryModeFlags {
     fn from(direction: MoveDirection) -> Self {
         match direction {
-            MoveDirection::Increment => CURSOR_MOVE_INCREMENT,
-            MoveDirection::Decrement => CURSOR_MOVE_DECREMENT,
+            MoveDirection::Increment => EntryModeFlags::CURSOR_MOVE_INCREMENT,
+            MoveDirection::Decrement => EntryModeFlags::CURSOR_MOVE_DECREMENT,
         }
     }
 }
@@ -36,8 +36,8 @@ pub enum DisplayShift {
 impl From<DisplayShift> for EntryModeFlags {
     fn from(shift: DisplayShift) -> Self {
         match shift {
-            DisplayShift::On => DISPLAY_SHIFT_ON,
-            DisplayShift::Off => DISPLAY_SHIFT_OFF,
+            DisplayShift::On => EntryModeFlags::DISPLAY_SHIFT_ON,
+            DisplayShift::Off => EntryModeFlags::DISPLAY_SHIFT_OFF,
         }
     }
 }
@@ -68,7 +68,7 @@ impl EntryModeBuilder {
     }
 
     pub(crate) fn build_command(&self) -> u8 {
-        let mut cmd = ENTRY_MODE;
+        let mut cmd = EntryModeFlags::ENTRY_MODE;
 
         cmd |= EntryModeFlags::from(self.move_direction);
         cmd |= EntryModeFlags::from(self.display_shift);

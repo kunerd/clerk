@@ -14,8 +14,8 @@ license = "MIT"
 travis-ci = { repository = "kunerd/clerk", branch = "master" }
 
 [dependencies]
-bitflags = "0.9"
+bitflags = "1.0.1"
 
 [dev-dependencies]
 itertools = "0.7.2"
-sysfs_gpio = "0.5"
+sysfs_gpio = "0.5.1"

@@ -1,3 +1,5 @@
+use address::Address;
+
 const SECOND_LINE_ADDRESS: u8 = 0x40;
 
 pub trait Home {
@@ -12,12 +14,14 @@ pub enum DefaultLines {
 
 impl Home for DefaultLines {}
 
-impl From<DefaultLines> for u8 {
+impl From<DefaultLines> for Address {
     /// Returns the hardware address of the line.
     fn from(line: DefaultLines) -> Self {
-        match line {
+        let raw_addr = match line {
             DefaultLines::One => DefaultLines::FIRST_LINE_ADDRESS,
             DefaultLines::Two => SECOND_LINE_ADDRESS,
-        }
+        };
+
+        Address::from(raw_addr)
     }
 }

@@ -20,8 +20,8 @@ pub enum DisplayState {
 impl From<DisplayState> for DisplayControlFlags {
     fn from(state: DisplayState) -> Self {
         match state {
-            DisplayState::On => DISPLAY_ON,
-            DisplayState::Off => DISPLAY_OFF,
+            DisplayState::On => DisplayControlFlags::DISPLAY_ON,
+            DisplayState::Off => DisplayControlFlags::DISPLAY_OFF,
         }
     }
 }
@@ -36,8 +36,8 @@ pub enum CursorState {
 impl From<CursorState> for DisplayControlFlags {
     fn from(state: CursorState) -> Self {
         match state {
-            CursorState::On => CURSOR_ON,
-            CursorState::Off => CURSOR_OFF,
+            CursorState::On => DisplayControlFlags::CURSOR_ON,
+            CursorState::Off => DisplayControlFlags::CURSOR_OFF,
         }
     }
 }
@@ -52,8 +52,8 @@ pub enum CursorBlinking {
 impl From<CursorBlinking> for DisplayControlFlags {
     fn from(state: CursorBlinking) -> Self {
         match state {
-            CursorBlinking::On => CURSOR_BLINKING_ON,
-            CursorBlinking::Off => CURSOR_BLINKING_OFF,
+            CursorBlinking::On => DisplayControlFlags::CURSOR_BLINKING_ON,
+            CursorBlinking::Off => DisplayControlFlags::CURSOR_BLINKING_OFF,
         }
     }
 }
@@ -93,7 +93,7 @@ impl DisplayControlBuilder {
     }
 
     pub(crate) fn build_command(&self) -> u8 {
-        let mut cmd = DISPLAY_CONTROL;
+        let mut cmd = DisplayControlFlags::DISPLAY_CONTROL;
 
         cmd |= DisplayControlFlags::from(self.display);
         cmd |= DisplayControlFlags::from(self.cursor);

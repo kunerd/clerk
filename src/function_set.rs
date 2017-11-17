@@ -22,8 +22,8 @@ pub enum DataLength {
 impl From<DataLength> for FunctionSetFlags {
     fn from(length: DataLength) -> Self {
         match length {
-            DataLength::FourBit => INTERFACE_DATA_LENGTH_4BIT,
-            DataLength::EightBit => INTERFACE_DATA_LENGTH_8BIT,
+            DataLength::FourBit => FunctionSetFlags::INTERFACE_DATA_LENGTH_4BIT,
+            DataLength::EightBit => FunctionSetFlags::INTERFACE_DATA_LENGTH_8BIT,
         }
     }
 }
@@ -38,8 +38,8 @@ pub enum LineNumber {
 impl From<LineNumber> for FunctionSetFlags {
     fn from(number: LineNumber) -> Self {
         match number {
-            LineNumber::One => DISPLAY_LINES_NUMBER_1,
-            LineNumber::Two => DISPLAY_LINES_NUMBER_2,
+            LineNumber::One => FunctionSetFlags::DISPLAY_LINES_NUMBER_1,
+            LineNumber::Two => FunctionSetFlags::DISPLAY_LINES_NUMBER_2,
         }
     }
 }
@@ -54,8 +54,8 @@ pub enum CharacterFont {
 impl From<CharacterFont> for FunctionSetFlags {
     fn from(font: CharacterFont) -> Self {
         match font {
-            CharacterFont::Dots5By10 => CHARACTER_FONT_5_10_DOTS,
-            CharacterFont::Dots5By8 => CHARACTER_FONT_5_8_DOTS,
+            CharacterFont::Dots5By10 => FunctionSetFlags::CHARACTER_FONT_5_10_DOTS,
+            CharacterFont::Dots5By8 => FunctionSetFlags::CHARACTER_FONT_5_8_DOTS,
         }
     }
 }
@@ -84,7 +84,7 @@ impl FunctionSetBuilder {
     }
 
     pub(crate) fn build_command(&self) -> u8 {
-        let mut cmd = FUNCTION_SET;
+        let mut cmd = FunctionSetFlags::FUNCTION_SET;
 
         cmd |= FunctionSetFlags::from(self.data_length);
         cmd |= FunctionSetFlags::from(self.line_number);

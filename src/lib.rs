@@ -12,6 +12,7 @@ mod entry_mode;
 mod display_control;
 mod function_set;
 mod lines;
+mod address;
 
 pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
