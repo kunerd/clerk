@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use super::address::Address;
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
 
 const LCD_WIDTH: usize = 16;
@@ -62,14 +63,14 @@ pub enum ShiftTo {
 impl ShiftTo {
     fn as_offset_and_raw_direction(&self) -> (u8, ShiftDirection) {
         match *self {
-            ShiftTo::Right(offset) => (offset, RIGHT),
-            ShiftTo::Left(offset) => (offset, LEFT),
+            ShiftTo::Right(offset) => (offset, ShiftDirection::RIGHT),
+            ShiftTo::Left(offset) => (offset, ShiftDirection::LEFT),
         }
     }
 }
 
 /// Enumeration of possible methods to seek within a `Display` object.
-pub enum SeekFrom<T: Into<u8>> {
+pub enum SeekFrom<T: Into<Address>> {
     /// Sets the cursor position to `Home` plus the provided number of bytes.
     Home(u8),
     /// Sets the cursor to the current position plus the specified number of bytes.
@@ -174,11 +175,11 @@ where
 pub struct Display<T, U, D>
 where
     T: DisplayHardwareLayer,
-    U: Into<u8> + Home,
+    U: Into<Address> + Home,
     D: Delay,
 {
     pins: DisplayPins<T>,
-    cursor_address: u8,
+    cursor_address: Address,
     _line_marker: PhantomData<U>,
     _delay_marker: PhantomData<D>,
 }
@@ -186,7 +187,7 @@ where
 impl<T, U, D> Display<T, U, D>
 where
     T: DisplayHardwareLayer,
-    U: Into<u8> + Home,
+    U: Into<Address> + Home,
     D: Delay,
 {
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
@@ -196,7 +197,7 @@ where
     pub fn from_pins(pins: DisplayPins<T>) -> Display<T, U, D> {
         Display {
             pins: pins,
-            cursor_address: 0,
+            cursor_address: Address::from(0),
             _line_marker: PhantomData,
             _delay_marker: PhantomData,
         }
@@ -255,12 +256,16 @@ where
     pub fn shift_cursor(&mut self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
-        match direction {
-            ShiftTo::Right(offset) => self.cursor_address += offset,
-            ShiftTo::Left(offset) => self.cursor_address -= offset,
+        if offset == 0 {
+            return;
         }
 
-        self.raw_shift(CURSOR, offset, raw_direction);
+        match direction {
+            ShiftTo::Right(offset) => self.cursor_address += offset.into(),
+            ShiftTo::Left(offset) => self.cursor_address -= offset.into()
+        }
+
+        self.raw_shift(ShiftTarget::CURSOR, offset, raw_direction);
     }
 
     /// Shifts the display to the right or the left by the given offset.
@@ -272,11 +277,11 @@ where
     pub fn shift(&self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
-        self.raw_shift(DISPLAY, offset, raw_direction);
+        self.raw_shift(ShiftTarget::DISPLAY, offset, raw_direction);
     }
 
     fn raw_shift(&self, shift_type: ShiftTarget, offset: u8, raw_direction: ShiftDirection) {
-        let mut cmd = SHIFT.bits();
+        let mut cmd = Instructions::SHIFT.bits();
 
         cmd |= shift_type.bits();
         cmd |= raw_direction.bits();
@@ -291,22 +296,22 @@ where
     ///
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&self) {
-        let cmd = CLEAR_DISPLAY.bits();
+        let cmd = Instructions::CLEAR_DISPLAY.bits();
         self.write_byte(WriteMode::Command(cmd));
     }
 
     fn generic_seek(&mut self, ram_type: RamType, pos: SeekFrom<U>) {
         let mut cmd = ram_type.into();
 
-        let (start, bytes) = match pos {
-            SeekFrom::Home(bytes) => (U::FIRST_LINE_ADDRESS, bytes),
-            SeekFrom::Current(bytes) => (self.cursor_address, bytes),
-            SeekFrom::Line { line, bytes } => (line.into(), bytes),
+        let (start, addr) = match pos {
+            SeekFrom::Home(bytes) => (U::FIRST_LINE_ADDRESS.into(), bytes.into()),
+            SeekFrom::Current(bytes) => (self.cursor_address, bytes.into()),
+            SeekFrom::Line { line, bytes } => (line.into(), bytes.into()),
         };
 
-        self.cursor_address = start + bytes;
+        self.cursor_address = start + addr;
 
-        cmd |= self.cursor_address;
+        cmd |= u8::from(self.cursor_address);
 
         self.write_byte(WriteMode::Command(cmd));
     }
@@ -378,7 +383,7 @@ where
     /// Writes the given byte to data or character generator RAM, depending on the previous
     /// seek operation.
     pub fn write(&mut self, c: u8) {
-        self.cursor_address += 1;
+        self.cursor_address += Address::from(1);
         self.write_byte(WriteMode::Data(c));
     }
 
@@ -428,7 +433,7 @@ where
 
     /// Reads a single byte from data RAM.
     pub fn read_byte(&mut self) -> u8 {
-        self.cursor_address += 1;
+        self.cursor_address += Address::from(1);
         self.read_raw_byte(ReadMode::Data)
     }
 
