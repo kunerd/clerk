@@ -3,25 +3,27 @@ use std::str;
 extern crate clerk;
 extern crate sysfs_gpio;
 
-use clerk::{CursorBlinking, CursorState, DefaultLines, Display, DisplayControlBuilder,
-            DisplayPins, DisplayState, FunctionSetBuilder, SeekFrom};
+use clerk::{CursorBlinking, CursorState, DataPins4Lines, DefaultLines, Display,
+            DisplayControlBuilder, DisplayState, FunctionSetBuilder, LineNumber, Pins, SeekFrom};
 
 mod utils;
 use utils::ExternPin;
 use utils::CustomDelay;
 
 fn main() {
-    let pins = DisplayPins {
+    let pins = Pins {
         register_select: ExternPin::new(2),
         read: ExternPin::new(3),
         enable: ExternPin::new(4),
-        data4: ExternPin::new(16),
-        data5: ExternPin::new(19),
-        data6: ExternPin::new(26),
-        data7: ExternPin::new(20),
+        data: DataPins4Lines {
+            data4: ExternPin::new(16),
+            data5: ExternPin::new(19),
+            data6: ExternPin::new(26),
+            data7: ExternPin::new(20),
+        },
     };
 
-    let mut lcd: Display<ExternPin, DefaultLines, CustomDelay> = Display::from_pins(pins);
+    let mut lcd: Display<_, DefaultLines> = Display::from_pins(pins);
 
     lcd.init(&FunctionSetBuilder::default());
 

@@ -18,5 +18,5 @@ pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
-pub use display::{Delay, Direction, Display, DisplayHardwareLayer, DisplayPins, Level, SeekFrom,
-                  ShiftTo};
+pub use display::{DataPins4Lines, DataPins8Lines, Delay, Direction, Display, DisplayHardwareLayer,
+                  Level, Pins, SeekFrom, ShiftTo};
