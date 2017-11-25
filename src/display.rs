@@ -27,7 +27,7 @@ bitflags! {
     }
 }
 
-enum WriteMode {
+pub enum WriteMode {
     Command(u8),
     Data(u8),
 }
@@ -155,82 +155,284 @@ pub trait DisplayHardwareLayer {
     fn get_value(&self) -> u8;
 }
 
-pub struct DisplayPins<T>
+pub trait SendRaw {
+    fn send_byte(&self, byte: u8);
+}
+
+pub trait Send {
+    fn send(&self, mode: WriteMode);
+}
+
+pub trait Init {
+    fn init(&self);
+}
+
+pub struct Pins<RS, R, E, D> {
+    pub register_select: RS,
+    pub read: R,
+    pub enable: E,
+    pub data: D,
+}
+
+impl<RS, R, E, D> Init for Pins<RS, R, E, D>
 where
-    T: DisplayHardwareLayer,
+    RS: DisplayHardwareLayer,
+    R: DisplayHardwareLayer,
+    E: DisplayHardwareLayer,
+    D: Init,
 {
-    pub register_select: T,
-    pub read: T,
-    pub enable: T,
-    pub data4: T,
-    pub data5: T,
-    pub data6: T,
-    pub data7: T,
+    fn init(&self) {
+        self.register_select.init();
+        self.register_select.set_direction(Direction::Out);
+
+        self.read.init();
+        self.read.set_direction(Direction::Out);
+
+        self.enable.init();
+        self.enable.set_direction(Direction::Out);
+
+        self.data.init();
+    }
+}
+
+impl<RS, R, E, D> Send for Pins<RS, R, E, D>
+where
+    Self: SendRaw,
+    RS: DisplayHardwareLayer,
+    R: DisplayHardwareLayer,
+{
+    fn send(&self, mode: WriteMode) {
+        self.read.set_level(Level::Low);
+
+        let (level, value) = mode.into();
+        self.register_select.set_level(level);
+
+        self.send_byte(value);
+    }
+}
+
+fn get_bit(val: u8, bit: u8) -> Level {
+    if val & bit == bit {
+        Level::High
+    } else {
+        Level::Low
+    }
+}
+
+// FIXME: WARNING - dummy implementation, not tested
+impl<RS, R, E, P0, P1, P2, P3, P4, P5, P6, P7> SendRaw
+    for Pins<RS, R, E, DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>>
+where
+    E: DisplayHardwareLayer,
+    P0: DisplayHardwareLayer,
+    P0: DisplayHardwareLayer,
+    P1: DisplayHardwareLayer,
+    P2: DisplayHardwareLayer,
+    P3: DisplayHardwareLayer,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    fn send_byte(&self, byte: u8) {
+        // D::delay_ns(D::ADDRESS_SETUP_TIME);
+        self.enable.set_level(Level::High);
+
+        self.data.data0.set_level(get_bit(byte, 0b0000_0001));
+        self.data.data1.set_level(get_bit(byte, 0b0000_0010));
+        self.data.data2.set_level(get_bit(byte, 0b0000_0100));
+        self.data.data3.set_level(get_bit(byte, 0b0000_1000));
+        self.data.data4.set_level(get_bit(byte, 0b0001_0000));
+        self.data.data5.set_level(get_bit(byte, 0b0010_0000));
+        self.data.data6.set_level(get_bit(byte, 0b0100_0000));
+        self.data.data7.set_level(get_bit(byte, 0b1000_0000));
+
+        // D::delay_ns(D::ENABLE_PULSE_WIDTH);
+        self.enable.set_level(Level::Low);
+        // D::delay_ns(D::DATA_HOLD_TIME);
+    }
+}
+
+pub struct DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>
+where
+    P0: DisplayHardwareLayer,
+    P1: DisplayHardwareLayer,
+    P2: DisplayHardwareLayer,
+    P3: DisplayHardwareLayer,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    pub data0: P0,
+    pub data1: P1,
+    pub data2: P2,
+    pub data3: P3,
+    pub data4: P4,
+    pub data5: P5,
+    pub data6: P6,
+    pub data7: P7,
+}
+
+impl<P0, P1, P2, P3, P4, P5, P6, P7> Init for DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>
+where
+    P0: DisplayHardwareLayer,
+    P0: DisplayHardwareLayer,
+    P1: DisplayHardwareLayer,
+    P2: DisplayHardwareLayer,
+    P3: DisplayHardwareLayer,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    fn init(&self) {
+        // TODO maybe not needed because of pin state config
+        self.data0.init();
+        self.data1.init();
+        self.data2.init();
+        self.data3.init();
+        self.data4.init();
+        self.data5.init();
+        self.data6.init();
+        self.data7.init();
+    }
+}
+
+pub struct DataPins4Lines<P4, P5, P6, P7>
+where
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    pub data4: P4,
+    pub data5: P5,
+    pub data6: P6,
+    pub data7: P7,
+}
+
+impl<P4, P5, P6, P7> Init for DataPins4Lines<P4, P5, P6, P7>
+where
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    fn init(&self) {
+        self.data4.init();
+        self.data5.init();
+        self.data6.init();
+        self.data7.init();
+    }
+}
+
+impl<RS, R, E, P4, P5, P6, P7> SendRaw for Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>
+where
+    E: DisplayHardwareLayer,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    fn send_byte(&self, byte: u8) {
+        self.data.data4.set_direction(Direction::Out);
+        self.data.data5.set_direction(Direction::Out);
+        self.data.data6.set_direction(Direction::Out);
+        self.data.data7.set_direction(Direction::Out);
+
+        write_4bit(self, Nibble::Upper(byte));
+        write_4bit(self, Nibble::Lower(byte));
+    }
+}
+
+fn write_4bit<RS, R, E, P4, P5, P6, P7>(
+    pins: &Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>,
+    nibble: Nibble,
+) where
+    E: DisplayHardwareLayer,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    let value: u8 = nibble.into();
+
+    // D::delay_ns(D::ADDRESS_SETUP_TIME);
+    pins.enable.set_level(Level::High);
+
+    if value & 0x01 == 0x01 {
+        pins.data.data4.set_level(Level::High);
+    } else {
+        pins.data.data4.set_level(Level::Low);
+    }
+
+    if value & 0x02 == 0x02 {
+        pins.data.data5.set_level(Level::High);
+    } else {
+        pins.data.data5.set_level(Level::Low);
+    }
+
+    if value & 0x04 == 0x04 {
+        pins.data.data6.set_level(Level::High);
+    } else {
+        pins.data.data6.set_level(Level::Low);
+    }
+
+    if value & 0x08 == 0x08 {
+        pins.data.data7.set_level(Level::High);
+    } else {
+        pins.data.data7.set_level(Level::Low);
+    }
+
+    // D::delay_ns(D::ENABLE_PULSE_WIDTH);
+    pins.enable.set_level(Level::Low);
+    // D::delay_ns(D::DATA_HOLD_TIME);
 }
 
 /// A HD44780 compliant display.
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
 /// liquid crystal display (LCD).
-pub struct Display<T, U, D>
+pub struct Display<P, U>
 where
-    T: DisplayHardwareLayer,
     U: Into<Address> + Home,
-    D: Delay,
 {
-    pins: DisplayPins<T>,
+    pins: P,
     cursor_address: Address,
     _line_marker: PhantomData<U>,
-    _delay_marker: PhantomData<D>,
+    // _delay_marker: PhantomData<D>,
 }
 
-impl<T, U, D> Display<T, U, D>
+impl<P, U> Display<P, U>
 where
-    T: DisplayHardwareLayer,
+    P: Send + Init,
     U: Into<Address> + Home,
-    D: Delay,
 {
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
     const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
 
     /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
-    pub fn from_pins(pins: DisplayPins<T>) -> Display<T, U, D> {
+    pub fn from_pins(pins: P) -> Self {
         Display {
             pins: pins,
             cursor_address: Address::from(0),
             _line_marker: PhantomData,
-            _delay_marker: PhantomData,
+            // _delay_marker: PhantomData,
         }
     }
 
-    fn init_pins(&self) {
-        self.pins.register_select.init();
-        self.pins.register_select.set_direction(Direction::Out);
-
-        self.pins.read.init();
-        self.pins.read.set_direction(Direction::Out);
-
-        self.pins.enable.init();
-        self.pins.enable.set_direction(Direction::Out);
-
-        // TODO maybe not needed because of pin state config
-        self.pins.data4.init();
-        self.pins.data5.init();
-        self.pins.data6.init();
-        self.pins.data7.init();
-    }
-
     fn init_by_instruction(&self, function_set: WriteMode) {
-        self.write_byte(Self::FIRST_4BIT_INIT_INSTRUCTION);
-        self.write_byte(Self::SECOND_4BIT_INIT_INSTRUCTION);
+        self.pins.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
+        self.pins.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
 
-        self.write_byte(function_set);
+        self.pins.send(function_set);
 
         self.clear();
     }
 
     pub fn init(&self, builder: &FunctionSetBuilder) {
-        self.init_pins();
+        self.pins.init();
 
         let cmd = builder.build_command();
         let cmd = WriteMode::Command(cmd);
@@ -241,13 +443,13 @@ where
     /// Sets the entry mode of the display.
     pub fn set_entry_mode(&self, builder: &EntryModeBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.write_byte(cmd);
+        self.pins.send(cmd);
     }
 
     /// Sets the display control settings.
     pub fn set_display_control(&self, builder: &DisplayControlBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.write_byte(cmd);
+        self.pins.send(cmd);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
@@ -287,7 +489,7 @@ where
         cmd |= raw_direction.bits();
 
         for _ in 0..offset {
-            self.write_byte(WriteMode::Command(cmd));
+            self.pins.send(WriteMode::Command(cmd));
         }
     }
 
@@ -297,7 +499,7 @@ where
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
-        self.write_byte(WriteMode::Command(cmd));
+        self.pins.send(WriteMode::Command(cmd));
     }
 
     fn generic_seek(&mut self, ram_type: RamType, pos: SeekFrom<U>) {
@@ -313,7 +515,7 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.write_byte(WriteMode::Command(cmd));
+        self.pins.send(WriteMode::Command(cmd));
     }
 
     /// Seeks to an offset in display data RAM.
@@ -326,127 +528,73 @@ where
         self.generic_seek(RamType::CharacterGenerator, pos);
     }
 
-    fn write_4bit(&self, nibble: Nibble) {
-        let value: u8 = nibble.into();
-
-        D::delay_ns(D::ADDRESS_SETUP_TIME);
-        self.pins.enable.set_level(Level::High);
-
-        if value & 0x01 == 0x01 {
-            self.pins.data4.set_level(Level::High);
-        } else {
-            self.pins.data4.set_level(Level::Low);
-        }
-
-        if value & 0x02 == 0x02 {
-            self.pins.data5.set_level(Level::High);
-        } else {
-            self.pins.data5.set_level(Level::Low);
-        }
-
-        if value & 0x04 == 0x04 {
-            self.pins.data6.set_level(Level::High);
-        } else {
-            self.pins.data6.set_level(Level::Low);
-        }
-
-        if value & 0x08 == 0x08 {
-            self.pins.data7.set_level(Level::High);
-        } else {
-            self.pins.data7.set_level(Level::Low);
-        }
-
-        D::delay_ns(D::ENABLE_PULSE_WIDTH);
-        self.pins.enable.set_level(Level::Low);
-        D::delay_ns(D::DATA_HOLD_TIME);
-    }
-
-    fn send_byte(&self, byte: u8) {
-        self.write_4bit(Nibble::Upper(byte));
-        self.write_4bit(Nibble::Lower(byte));
-    }
-
-    fn write_byte(&self, mode: WriteMode) {
-        self.pins.data4.set_direction(Direction::Out);
-        self.pins.data5.set_direction(Direction::Out);
-        self.pins.data6.set_direction(Direction::Out);
-        self.pins.data7.set_direction(Direction::Out);
-
-        self.pins.read.set_level(Level::Low);
-
-        let (level, value) = mode.into();
-        self.pins.register_select.set_level(level);
-
-        self.send_byte(value);
-    }
-
     /// Writes the given byte to data or character generator RAM, depending on the previous
     /// seek operation.
     pub fn write(&mut self, c: u8) {
         self.cursor_address += Address::from(1);
-        self.write_byte(WriteMode::Data(c));
+        self.pins.send(WriteMode::Data(c));
     }
 
-    fn read_single_nibble(&self) -> u8 {
-        let mut result = 0u8;
-
-        D::delay_ns(D::ADDRESS_SETUP_TIME);
-        self.pins.enable.set_level(Level::High);
-
-        result |= self.pins.data7.get_value() << 3;
-        result |= self.pins.data6.get_value() << 2;
-        result |= self.pins.data5.get_value() << 1;
-        result |= self.pins.data4.get_value();
-
-        D::delay_ns(D::ENABLE_PULSE_WIDTH);
-        self.pins.enable.set_level(Level::Low);
-        D::delay_ns(D::DATA_HOLD_TIME);
-
-        result
-    }
-
-    fn receive_byte(&self) -> u8 {
-        let upper = self.read_single_nibble();
-        let lower = self.read_single_nibble();
-
-        let mut result = upper << 4;
-        result |= lower & 0x0f;
-
-        result
-    }
-
-    fn read_raw_byte(&self, mode: ReadMode) -> u8 {
-        self.pins.data4.set_direction(Direction::In);
-        self.pins.data5.set_direction(Direction::In);
-        self.pins.data6.set_direction(Direction::In);
-        self.pins.data7.set_direction(Direction::In);
-
-        self.pins.read.set_level(Level::High);
-
-        match mode {
-            ReadMode::Data => self.pins.register_select.set_level(Level::High),
-            ReadMode::BusyFlag => self.pins.register_select.set_level(Level::Low),
-        };
-
-        self.receive_byte()
-    }
-
-    /// Reads a single byte from data RAM.
-    pub fn read_byte(&mut self) -> u8 {
-        self.cursor_address += Address::from(1);
-        self.read_raw_byte(ReadMode::Data)
-    }
+    // fn read_single_nibble(&self) -> u8 {
+    //     let mut result = 0u8;
+    //
+    //     D::delay_ns(D::ADDRESS_SETUP_TIME);
+    //     self.pins.enable.set_level(Level::High);
+    //
+    //     result |= self.pins.data7.get_value() << 3;
+    //     result |= self.pins.data6.get_value() << 2;
+    //     result |= self.pins.data5.get_value() << 1;
+    //     result |= self.pins.data4.get_value();
+    //
+    //     D::delay_ns(D::ENABLE_PULSE_WIDTH);
+    //     self.pins.enable.set_level(Level::Low);
+    //     D::delay_ns(D::DATA_HOLD_TIME);
+    //
+    //     result
+    // }
+    //
+    // fn receive_byte(&self) -> u8 {
+    //     let upper = self.read_single_nibble();
+    //     let lower = self.read_single_nibble();
+    //
+    //     let mut result = upper << 4;
+    //     result |= lower & 0x0f;
+    //
+    //     result
+    // }
+    //
+    // fn read_raw_byte(&self, mode: ReadMode) -> u8 {
+    //     self.pins.data4.set_direction(Direction::In);
+    //     self.pins.data5.set_direction(Direction::In);
+    //     self.pins.data6.set_direction(Direction::In);
+    //     self.pins.data7.set_direction(Direction::In);
+    //
+    //     self.pins.read.set_level(Level::High);
+    //
+    //     match mode {
+    //         ReadMode::Data => self.pins.register_select.set_level(Level::High),
+    //         ReadMode::BusyFlag => self.pins.register_select.set_level(Level::Low),
+    //     };
+    //
+    //     self.receive_byte()
+    // }
+    //
+    // /// Reads a single byte from data RAM.
+    // pub fn read_byte(&mut self) -> u8 {
+    //     self.cursor_address += Address::from(1);
+    //     self.read_raw_byte(ReadMode::Data)
+    // }
 
     /// Reads busy flag and the cursor's current address.
-    pub fn read_busy_flag(&self) -> (bool, u8) {
-        let byte = self.read_raw_byte(ReadMode::BusyFlag);
-
-        let busy_flag = (byte & 0b1000_0000) != 0;
-
-        let address = byte & 0b0111_1111;
-
-        (busy_flag, address)
-    }
+    // pub fn read_busy_flag(&self) -> (bool, u8) {
+    //     let byte = self.read_raw_byte(ReadMode::BusyFlag);
+    //
+    //     let busy_flag = (byte & 0b1000_0000) != 0;
+    //
+    //     let address = byte & 0b0111_1111;
+    //
+    //     (busy_flag, address)
+    // }
 
     /// Writes the given message to data or character generator RAM, depending on the previous
     /// seek operation.
@@ -456,7 +604,7 @@ where
         }
     }
 
-    pub fn get_pins(self) -> DisplayPins<T> {
+    pub fn get_pins(self) -> P {
         self.pins
     }
 }
