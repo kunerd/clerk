@@ -5,13 +5,14 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use itertools::{multizip, Itertools};
 
-use clerk::{DefaultLines, Delay, Direction, Display, DisplayControlBuilder, DisplayHardwareLayer,
-            DisplayPins, EntryModeBuilder, FunctionSetBuilder, Level, SeekFrom, ShiftTo};
+use clerk::{DataPins4Lines, DefaultLines, Delay, Direction, Display, DisplayControlBuilder,
+            DisplayHardwareLayer, EntryModeBuilder, FunctionSetBuilder, Level, Pins, SeekFrom,
+            ShiftTo};
 
 pub struct PinMock {
     levels: RefCell<Vec<Level>>,
     directions: RefCell<Vec<Direction>>,
-    values: Option<RefCell<VecDeque<u8>>>
+    values: Option<RefCell<VecDeque<u8>>>,
 }
 
 impl Default for PinMock {
@@ -28,7 +29,7 @@ impl PinMock {
     pub fn set_value(&mut self, value: u8) {
         match self.values {
             Some(ref mut v) => v.borrow_mut().push_back(value),
-            None => ()
+            None => (),
         }
     }
 }
@@ -53,7 +54,7 @@ impl DisplayHardwareLayer for PinMock {
     fn get_value(&self) -> u8 {
         match self.values {
             Some(ref v) => v.borrow_mut().pop_front().unwrap(),
-            None => panic!("No return value specified for current test.")
+            None => panic!("No return value specified for current test."),
         }
     }
 }
@@ -66,15 +67,20 @@ impl Delay for CustomDelayMock {
     }
 }
 
-fn setup_display() -> Display<PinMock, DefaultLines, CustomDelayMock> {
-    let pins = DisplayPins {
+fn setup_display() -> Display<
+    Pins<PinMock, PinMock, PinMock, DataPins4Lines<PinMock, PinMock, PinMock, PinMock>>,
+    DefaultLines,
+> {
+    let pins = Pins {
         register_select: PinMock::default(),
         read: PinMock::default(),
         enable: PinMock::default(),
-        data4: PinMock::default(),
-        data5: PinMock::default(),
-        data6: PinMock::default(),
-        data7: PinMock::default(),
+        data: DataPins4Lines {
+            data4: PinMock::default(),
+            data5: PinMock::default(),
+            data6: PinMock::default(),
+            data7: PinMock::default(),
+        },
     };
 
     Display::from_pins(pins)
@@ -371,20 +377,22 @@ fn test_write_message_increments_address_counter() {
 
 #[test]
 fn test_read() {
-    let mut pins = DisplayPins {
+    let mut pins = Pins {
         register_select: PinMock::default(),
         read: PinMock::default(),
         enable: PinMock::default(),
-        data4: PinMock::default(),
-        data5: PinMock::default(),
-        data6: PinMock::default(),
-        data7: PinMock::default(),
+        data: DataPins4Lines {
+            data4: PinMock::default(),
+            data5: PinMock::default(),
+            data6: PinMock::default(),
+            data7: PinMock::default(),
+        },
     };
 
     let expected = 42;
     set_read_value(&mut pins, expected);
 
-    let mut lcd = Display::<PinMock, DefaultLines, CustomDelayMock>::from_pins(pins);
+    let mut lcd = Display::<_, DefaultLines>::from_pins(pins);
 
     let input = lcd.read_byte();
 
@@ -393,20 +401,22 @@ fn test_read() {
 
 #[test]
 fn test_read_increments_address_counter() {
-    let mut pins = DisplayPins {
+    let mut pins = Pins {
         register_select: PinMock::default(),
         read: PinMock::default(),
         enable: PinMock::default(),
-        data4: PinMock::default(),
-        data5: PinMock::default(),
-        data6: PinMock::default(),
-        data7: PinMock::default(),
+        data: DataPins4Lines {
+            data4: PinMock::default(),
+            data5: PinMock::default(),
+            data6: PinMock::default(),
+            data7: PinMock::default(),
+        },
     };
 
     set_read_value(&mut pins, 4);
     set_read_value(&mut pins, 2);
 
-    let mut lcd = Display::<PinMock, DefaultLines, CustomDelayMock>::from_pins(pins);
+    let mut lcd = Display::<_, DefaultLines>::from_pins(pins);
 
     lcd.read_byte();
     lcd.seek(SeekFrom::Current(0));
@@ -421,25 +431,30 @@ fn test_read_increments_address_counter() {
     assert_eq!(outp[1], to_level_slice(0b1000_0010));
 }
 
-fn set_read_value(pins: &mut DisplayPins<PinMock>, value: u8) {
-    pins.data4.set_value((value & 0b0001_0000) >> 4);
-    pins.data5.set_value((value & 0b0010_0000) >> 5);
-    pins.data6.set_value((value & 0b0100_0000) >> 6);
-    pins.data7.set_value((value & 0b1000_0000) >> 7);
+fn set_read_value<RS, R, E>(
+    pins: &mut Pins<RS, R, E, DataPins4Lines<PinMock, PinMock, PinMock, PinMock>>,
+    value: u8,
+) {
+    pins.data.data4.set_value((value & 0b0001_0000) >> 4);
+    pins.data.data5.set_value((value & 0b0010_0000) >> 5);
+    pins.data.data6.set_value((value & 0b0100_0000) >> 6);
+    pins.data.data7.set_value((value & 0b1000_0000) >> 7);
 
-    pins.data4.set_value(value & 0b0000_0001);
-    pins.data5.set_value((value & 0b0000_0010) >> 1);
-    pins.data6.set_value((value & 0b0000_0100) >> 2);
-    pins.data7.set_value((value & 0b0000_1000) >> 3);
+    pins.data.data4.set_value(value & 0b0000_0001);
+    pins.data.data5.set_value((value & 0b0000_0010) >> 1);
+    pins.data.data6.set_value((value & 0b0000_0100) >> 2);
+    pins.data.data7.set_value((value & 0b0000_1000) >> 3);
 }
 
-fn flat_pins(pins: DisplayPins<PinMock>) -> Vec<Vec<Level>> {
+fn flat_pins<RS, R, E>(
+    pins: Pins<RS, R, E, DataPins4Lines<PinMock, PinMock, PinMock, PinMock>>,
+) -> Vec<Vec<Level>> {
     let mut r = vec![];
 
-    let data4 = pins.data4.levels.into_inner();
-    let data5 = pins.data5.levels.into_inner();
-    let data6 = pins.data6.levels.into_inner();
-    let data7 = pins.data7.levels.into_inner();
+    let data4 = pins.data.data4.levels.into_inner();
+    let data5 = pins.data.data5.levels.into_inner();
+    let data6 = pins.data.data6.levels.into_inner();
+    let data7 = pins.data.data7.levels.into_inner();
 
     for (d4, d5, d6, d7) in multizip((data4, data5, data6, data7)) {
         r.push(vec![d7, d6, d5, d4]);
