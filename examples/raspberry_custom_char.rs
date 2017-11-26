@@ -4,7 +4,7 @@ extern crate clerk;
 extern crate sysfs_gpio;
 
 use clerk::{CursorBlinking, CursorState, DataPins4Lines, DefaultLines, Display,
-            DisplayControlBuilder, DisplayState, FunctionSetBuilder, LineNumber, Pins, SeekFrom};
+            DisplayControlBuilder, DisplayState, FunctionSetBuilder, Pins, SeekFrom};
 
 mod utils;
 use utils::ExternPin;
