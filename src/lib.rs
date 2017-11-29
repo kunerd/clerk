@@ -7,16 +7,17 @@
 #[macro_use]
 extern crate bitflags;
 
+mod hal;
+mod lines;
 mod display;
+mod function_set;
 mod entry_mode;
 mod display_control;
-mod function_set;
-mod lines;
 mod address;
 
 pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
-pub use display::{DataPins4Lines, DataPins8Lines, Delay, Direction, Display, DisplayHardwareLayer,
-                  Level, Pins, SeekFrom, ShiftTo};
+pub use display::{Display, SeekFrom, ShiftTo};
+pub use hal::{DataPins4Lines, DataPins8Lines, Delay, Direction, DisplayHardwareLayer, Level, Pins};
