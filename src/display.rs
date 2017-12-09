@@ -77,10 +77,10 @@ pub struct Display<P, U>
 where
     U: Into<Address> + Home,
 {
-    pins: P,
+    // TODO: needs a more generic name
+    connection: P,
     cursor_address: Address,
     _line_marker: PhantomData<U>,
-    // _delay_marker: PhantomData<D>,
 }
 
 impl<P, U> Display<P, U>
@@ -91,27 +91,17 @@ where
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
     const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
 
-    /// Makes a new `Display` from a numeric pins configuration, given via `DisplayPins`.
-    pub fn from_pins(pins: P) -> Self {
+    /// Create a new `Display` using the given connection.
+    pub fn new(connection: P) -> Self {
         Display {
-            pins: pins,
+            connection: connection,
             cursor_address: Address::from(0),
             _line_marker: PhantomData,
-            // _delay_marker: PhantomData,
         }
     }
 
-    fn init_by_instruction(&self, function_set: WriteMode) {
-        self.pins.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
-        self.pins.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
-
-        self.pins.send(function_set);
-
-        self.clear();
-    }
-
     pub fn init(&self, builder: &FunctionSetBuilder) {
-        self.pins.init();
+        self.connection.init();
 
         let cmd = builder.build_command();
         let cmd = WriteMode::Command(cmd);
@@ -119,16 +109,25 @@ where
         self.init_by_instruction(cmd);
     }
 
+    fn init_by_instruction(&self, function_set: WriteMode) {
+        self.connection.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
+        self.connection.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
+
+        self.connection.send(function_set);
+
+        self.clear();
+    }
+
     /// Sets the entry mode of the display.
     pub fn set_entry_mode(&self, builder: &EntryModeBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.pins.send(cmd);
+        self.connection.send(cmd);
     }
 
     /// Sets the display control settings.
     pub fn set_display_control(&self, builder: &DisplayControlBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.pins.send(cmd);
+        self.connection.send(cmd);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
@@ -168,7 +167,7 @@ where
         cmd |= raw_direction.bits();
 
         for _ in 0..offset {
-            self.pins.send(WriteMode::Command(cmd));
+            self.connection.send(WriteMode::Command(cmd));
         }
     }
 
@@ -178,7 +177,7 @@ where
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
-        self.pins.send(WriteMode::Command(cmd));
+        self.connection.send(WriteMode::Command(cmd));
     }
 
     fn generic_seek(&mut self, ram_type: RamType, pos: SeekFrom<U>) {
@@ -194,7 +193,7 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.pins.send(WriteMode::Command(cmd));
+        self.connection.send(WriteMode::Command(cmd));
     }
 
     /// Seeks to an offset in display data RAM.
@@ -211,18 +210,18 @@ where
     /// seek operation.
     pub fn write(&mut self, c: u8) {
         self.cursor_address += Address::from(1);
-        self.pins.send(WriteMode::Data(c));
+        self.connection.send(WriteMode::Data(c));
     }
 
     /// Reads a single byte from data RAM.
     pub fn read_byte(&mut self) -> u8 {
         self.cursor_address += Address::from(1);
-        self.pins.recieve(ReadMode::Data)
+        self.connection.recieve(ReadMode::Data)
     }
 
     /// Reads busy flag and the cursor's current address.
     pub fn read_busy_flag(&self) -> (bool, u8) {
-        let byte = self.pins.recieve(ReadMode::BusyFlag);
+        let byte = self.connection.recieve(ReadMode::BusyFlag);
 
         let busy_flag = (byte & 0b1000_0000) != 0;
 
@@ -239,7 +238,7 @@ where
         }
     }
 
-    pub fn get_pins(self) -> P {
-        self.pins
+    pub fn get_connection(self) -> P {
+        self.connection
     }
 }

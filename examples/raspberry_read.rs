@@ -21,7 +21,7 @@ fn main() {
         },
     };
 
-    let mut lcd: Display<_, DefaultLines> = Display::from_pins(pins);
+    let mut lcd: Display<_, DefaultLines> = Display::new(pins.into_connection::<CustomDelay>());
 
     lcd.init(&FunctionSetBuilder::default());
 
