@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+#[derive(Debug, PartialEq)]
 pub enum WriteMode {
     Command(u8),
     Data(u8),

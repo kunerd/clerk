@@ -77,7 +77,6 @@ pub struct Display<P, U>
 where
     U: Into<Address> + Home,
 {
-    // TODO: needs a more generic name
     connection: P,
     cursor_address: Address,
     _line_marker: PhantomData<U>,
