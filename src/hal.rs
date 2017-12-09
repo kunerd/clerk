@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 pub enum WriteMode {
     Command(u8),
     Data(u8),
@@ -111,12 +113,33 @@ pub struct Pins<RS, R, E, D> {
     pub data: D,
 }
 
-impl<RS, R, E, D> Init for Pins<RS, R, E, D>
+impl<RS, R, E, D> Pins<RS, R, E, D> {
+    pub fn into_connection<T>(self) -> ParallelConnection<RS, R, E, D, T> {
+        ParallelConnection {
+            register_select: self.register_select,
+            read: self.read,
+            enable: self.enable,
+            data: self.data,
+            _delay_marker: PhantomData,
+        }
+    }
+}
+
+pub struct ParallelConnection<RS, R, E, D, T> {
+    register_select: RS,
+    read: R,
+    enable: E,
+    data: D,
+    _delay_marker: PhantomData<T>,
+}
+
+impl<RS, R, E, D, T> Init for ParallelConnection<RS, R, E, D, T>
 where
     RS: DisplayHardwareLayer,
     R: DisplayHardwareLayer,
     E: DisplayHardwareLayer,
     D: Init,
+    T: Delay,
 {
     fn init(&self) {
         self.register_select.init();
@@ -132,7 +155,7 @@ where
     }
 }
 
-impl<RS, R, E, D> Send for Pins<RS, R, E, D>
+impl<RS, R, E, D, T> Send for ParallelConnection<RS, R, E, D, T>
 where
     Self: SendRaw,
     RS: DisplayHardwareLayer,
@@ -148,7 +171,7 @@ where
     }
 }
 
-impl<RS, R, E, D> Recieve for Pins<RS, R, E, D>
+impl<RS, R, E, D, T> Recieve for ParallelConnection<RS, R, E, D, T>
 where
     Self: RecieveRaw,
     RS: DisplayHardwareLayer,
@@ -167,10 +190,11 @@ where
 }
 
 // FIXME: WARNING - dummy implementation, not tested
-impl<RS, R, E, P0, P1, P2, P3, P4, P5, P6, P7> SendRaw
-    for Pins<RS, R, E, DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>>
+impl<RS, R, E, T, P0, P1, P2, P3, P4, P5, P6, P7> SendRaw
+    for ParallelConnection<RS, R, E, DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>, T>
 where
     E: DisplayHardwareLayer,
+    T: Delay,
     P0: DisplayHardwareLayer,
     P0: DisplayHardwareLayer,
     P1: DisplayHardwareLayer,
@@ -182,7 +206,7 @@ where
     P7: DisplayHardwareLayer,
 {
     fn send_byte(&self, byte: u8) {
-        // D::delay_ns(D::ADDRESS_SETUP_TIME);
+        T::delay_ns(T::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High);
 
         self.data.data0.set_level(get_bit(byte, 0b0000_0001));
@@ -194,9 +218,9 @@ where
         self.data.data6.set_level(get_bit(byte, 0b0100_0000));
         self.data.data7.set_level(get_bit(byte, 0b1000_0000));
 
-        // D::delay_ns(D::ENABLE_PULSE_WIDTH);
+        T::delay_ns(T::ENABLE_PULSE_WIDTH);
         self.enable.set_level(Level::Low);
-        // D::delay_ns(D::DATA_HOLD_TIME);
+        T::delay_ns(T::DATA_HOLD_TIME);
     }
 }
 
@@ -242,7 +266,7 @@ where
     P7: DisplayHardwareLayer,
 {
     fn init(&self) {
-        // TODO maybe not needed because of pin state config
+// TODO maybe not needed because of pin state config
         self.data0.init();
         self.data1.init();
         self.data2.init();
@@ -282,9 +306,11 @@ where
     }
 }
 
-impl<RS, R, E, P4, P5, P6, P7> SendRaw for Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>
+impl<RS, R, E, T, P4, P5, P6, P7> SendRaw
+    for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>
 where
     E: DisplayHardwareLayer,
+    T: Delay,
     P4: DisplayHardwareLayer,
     P5: DisplayHardwareLayer,
     P6: DisplayHardwareLayer,
@@ -301,11 +327,12 @@ where
     }
 }
 
-fn write_4bit<RS, R, E, P4, P5, P6, P7>(
-    pins: &Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>,
+fn write_4bit<RS, R, E, T, P4, P5, P6, P7>(
+    pins: &ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
     nibble: Nibble,
 ) where
     E: DisplayHardwareLayer,
+    T: Delay,
     P4: DisplayHardwareLayer,
     P5: DisplayHardwareLayer,
     P6: DisplayHardwareLayer,
@@ -313,7 +340,7 @@ fn write_4bit<RS, R, E, P4, P5, P6, P7>(
 {
     let value: u8 = nibble.into();
 
-    // D::delay_ns(D::ADDRESS_SETUP_TIME);
+    T::delay_ns(T::ADDRESS_SETUP_TIME);
     pins.enable.set_level(Level::High);
 
     if value & 0x01 == 0x01 {
@@ -340,14 +367,16 @@ fn write_4bit<RS, R, E, P4, P5, P6, P7>(
         pins.data.data7.set_level(Level::Low);
     }
 
-    // D::delay_ns(D::ENABLE_PULSE_WIDTH);
+    T::delay_ns(T::ENABLE_PULSE_WIDTH);
     pins.enable.set_level(Level::Low);
-    // D::delay_ns(D::DATA_HOLD_TIME);
+    T::delay_ns(T::DATA_HOLD_TIME);
 }
 
-impl<RS, R, E, P4, P5, P6, P7> RecieveRaw for Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>
+impl<RS, R, E, T, P4, P5, P6, P7> RecieveRaw
+    for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>
 where
     E: DisplayHardwareLayer,
+    T: Delay,
     P4: DisplayHardwareLayer,
     P5: DisplayHardwareLayer,
     P6: DisplayHardwareLayer,
@@ -369,11 +398,12 @@ where
     }
 }
 
-fn read_single_nibble<RS, R, E, P4, P5, P6, P7>(
-    pins: &Pins<RS, R, E, DataPins4Lines<P4, P5, P6, P7>>,
+fn read_single_nibble<RS, R, E, T, P4, P5, P6, P7>(
+    pins: &ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
 ) -> u8
 where
     E: DisplayHardwareLayer,
+    T: Delay,
     P4: DisplayHardwareLayer,
     P5: DisplayHardwareLayer,
     P6: DisplayHardwareLayer,
@@ -381,7 +411,7 @@ where
 {
     let mut result = 0u8;
 
-    // D::delay_ns(D::ADDRESS_SETUP_TIME);
+    T::delay_ns(T::ADDRESS_SETUP_TIME);
     pins.enable.set_level(Level::High);
 
     result |= pins.data.data7.get_value() << 3;
@@ -389,9 +419,9 @@ where
     result |= pins.data.data5.get_value() << 1;
     result |= pins.data.data4.get_value();
 
-    // D::delay_ns(D::ENABLE_PULSE_WIDTH);
+    T::delay_ns(T::ENABLE_PULSE_WIDTH);
     pins.enable.set_level(Level::Low);
-    // D::delay_ns(D::DATA_HOLD_TIME);
+    T::delay_ns(T::DATA_HOLD_TIME);
 
     result
 }
