@@ -141,7 +141,7 @@ where
 
         match direction {
             ShiftTo::Right(offset) => self.cursor_address += offset.into(),
-            ShiftTo::Left(offset) => self.cursor_address -= offset.into()
+            ShiftTo::Left(offset) => self.cursor_address -= offset.into(),
         }
 
         self.raw_shift(ShiftTarget::CURSOR, offset, raw_direction);
