@@ -66,15 +66,15 @@ pub trait Send {
 
 /// This trait is used to provide an implementation for receiving data via a [`Display`] connection.
 /// [`Display`]: struct.Display.html
-pub trait Recieve {
-    fn recieve(&self, mode: ReadMode) -> u8;
+pub trait Receive {
+    fn receive(&self, mode: ReadMode) -> u8;
 }
 
 pub trait SendRaw {
     fn send_byte(&self, byte: u8);
 }
 
-pub trait RecieveRaw {
+pub trait ReceiveRaw {
     fn receive_byte(&self) -> u8;
 }
 
@@ -194,13 +194,13 @@ where
     }
 }
 
-impl<RS, R, E, D, T> Recieve for ParallelConnection<RS, R, E, D, T>
+impl<RS, R, E, D, T> Receive for ParallelConnection<RS, R, E, D, T>
 where
-    Self: RecieveRaw,
+    Self: ReceiveRaw,
     RS: DisplayHardwareLayer,
     R: DisplayHardwareLayer,
 {
-    fn recieve(&self, mode: ReadMode) -> u8 {
+    fn receive(&self, mode: ReadMode) -> u8 {
         self.read.set_level(Level::High);
 
         match mode {
@@ -397,7 +397,7 @@ fn write_4bit<RS, R, E, T, P4, P5, P6, P7>(
     T::delay_ns(T::DATA_HOLD_TIME);
 }
 
-impl<RS, R, E, T, P4, P5, P6, P7> RecieveRaw
+impl<RS, R, E, T, P4, P5, P6, P7> ReceiveRaw
     for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>
 where
     E: DisplayHardwareLayer,
