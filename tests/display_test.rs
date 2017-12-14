@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 
 use clerk::{DefaultLines, Delay, Display, DisplayControlBuilder, EntryModeBuilder,
-            FunctionSetBuilder, SeekFrom, ShiftTo, Send, Recieve, Init, WriteMode, ReadMode};
+            FunctionSetBuilder, SeekFrom, ShiftTo, Send, Receive, Init, WriteMode, ReadMode};
 
 struct ConnectionMock {
     init_calls: RefCell<u8>,
@@ -45,8 +45,8 @@ impl Send for ConnectionMock {
     }
 }
 
-impl Recieve for ConnectionMock {
-    fn recieve(&self, _: ReadMode) -> u8 {
+impl Receive for ConnectionMock {
+    fn receive(&self, _: ReadMode) -> u8 {
         self.receivable_bytes.borrow_mut().pop_front().unwrap()
     }
 }

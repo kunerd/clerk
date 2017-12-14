@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use super::address::Address;
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
-use hal::{Init, ReadMode, Recieve, Send, WriteMode};
+use hal::{Init, ReadMode, Receive, Send, WriteMode};
 
 const LCD_WIDTH: usize = 16;
 
@@ -84,7 +84,7 @@ where
 
 impl<P, U> Display<P, U>
 where
-    P: Init + Send + Recieve,
+    P: Init + Send + Receive,
     U: Into<Address> + Home,
 {
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
@@ -215,12 +215,12 @@ where
     /// Reads a single byte from data RAM.
     pub fn read_byte(&mut self) -> u8 {
         self.cursor_address += Address::from(1);
-        self.connection.recieve(ReadMode::Data)
+        self.connection.receive(ReadMode::Data)
     }
 
     /// Reads busy flag and the cursor's current address.
     pub fn read_busy_flag(&self) -> (bool, u8) {
-        let byte = self.connection.recieve(ReadMode::BusyFlag);
+        let byte = self.connection.receive(ReadMode::BusyFlag);
 
         let busy_flag = (byte & 0b1000_0000) != 0;
 
