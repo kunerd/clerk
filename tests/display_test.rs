@@ -1,5 +1,4 @@
 extern crate clerk;
-extern crate itertools;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
