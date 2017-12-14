@@ -1,6 +1,7 @@
 //! # Clerk
 //!
 //! Clerk is a generic and hardware agnostic libary to controll HD44780 compliant LCD displays.
+//! Its main goal is to provide all features defined in the HD44780 spec.
 
 #![no_std]
 
