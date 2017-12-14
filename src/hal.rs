@@ -1,11 +1,13 @@
 use core::marker::PhantomData;
 
+/// Enumeration possible write operations.
 #[derive(Debug, PartialEq)]
 pub enum WriteMode {
     Command(u8),
     Data(u8),
 }
 
+/// Enumeration possible read operations.
 pub enum ReadMode {
     Data,
     BusyFlag,
@@ -48,14 +50,22 @@ impl From<Nibble> for u8 {
     }
 }
 
+/// This trait is used to provide an initialization implementation for a [`Display`] connection.
+/// [`Display`]: struct.Display.html
 pub trait Init {
+    /// Initializes the connection.
     fn init(&self);
 }
 
+/// This trait is used to provide an implementation for sending data via a [`Display`] connection.
+/// [`Display`]: struct.Display.html
 pub trait Send {
+    /// Sends data via the connection.
     fn send(&self, mode: WriteMode);
 }
 
+/// This trait is used to provide an implementation for receiving data via a [`Display`] connection.
+/// [`Display`]: struct.Display.html
 pub trait Recieve {
     fn recieve(&self, mode: ReadMode) -> u8;
 }
@@ -107,6 +117,9 @@ pub trait Delay {
     }
 }
 
+/// This struct is used for easily setting up [`ParallelConnection`]s.
+///
+/// [`ParallelConnection`]: struct.ParallelConnection.html
 pub struct Pins<RS, R, E, D> {
     pub register_select: RS,
     pub read: R,
@@ -115,6 +128,10 @@ pub struct Pins<RS, R, E, D> {
 }
 
 impl<RS, R, E, D> Pins<RS, R, E, D> {
+    /// Converts the pin setup into a [`ParallelConnection`] that is by `Display` to communicate
+    /// with the LCD device.
+    ///
+    /// [`ParallelConnection`]: struct.ParallelConnection.html
     pub fn into_connection<T>(self) -> ParallelConnection<RS, R, E, D, T> {
         ParallelConnection {
             register_select: self.register_select,
@@ -126,6 +143,11 @@ impl<RS, R, E, D> Pins<RS, R, E, D> {
     }
 }
 
+/// The parallel connection mode is the most common wiring mode for HD44780 compliant displays.
+/// It can be used with either four ([`DataPins4Lines`]) or eight ([`DataPins8Lines`]) data lines.
+///
+/// [`DataPins4Lines`]: struct.DataPins4Lines.html
+/// [`DataPins8Lines`]: struct.DataPins8Lines.html
 pub struct ParallelConnection<RS, R, E, D, T> {
     register_select: RS,
     read: R,
@@ -233,6 +255,7 @@ fn get_bit(val: u8, bit: u8) -> Level {
     }
 }
 
+/// Eight data lines pin wiring setup.
 pub struct DataPins8Lines<P0, P1, P2, P3, P4, P5, P6, P7>
 where
     P0: DisplayHardwareLayer,
@@ -279,6 +302,7 @@ where
     }
 }
 
+/// Four data lines pin wiring setup.
 pub struct DataPins4Lines<P4, P5, P6, P7>
 where
     P4: DisplayHardwareLayer,

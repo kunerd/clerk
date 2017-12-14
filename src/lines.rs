@@ -2,6 +2,7 @@ use address::Address;
 
 const SECOND_LINE_ADDRESS: u8 = 0x40;
 
+/// This trait is used to specify the start address of the display data RAM.
 pub trait Home {
     const FIRST_LINE_ADDRESS: u8 = 0x00;
 }

@@ -4,7 +4,7 @@
 
 Hardware independent HD44780 LCD library written in Rust
 
-The library's goal is to provide a high level interface to control HD44780 compliant LCD displays. It does not rely on `std` and therefore it should work on PCs as well as on embedded devices.
+The library's goal is to provide a high level interface to control HD44780 compliant LCD displays. It does not rely on `std` and therefore it should work on PCs as well as on embedded devices. Its main goal is to provide all features defined in the HD44780 spec.
 
 ## Current state
 This library is actively maintained and most of the features described in the HD44780 spec are implemented. The current work mainly concentrates on providing a first stable version.
@@ -14,7 +14,7 @@ This library is actively maintained and most of the features described in the HD
 - [ ] Return home (but is possible via `seek()`)
 - [x] Entry mode settings
 - [x] Cursor and display shift
-- [ ] Function set
+- [x] Function set
 - [x] Display control settings
 - [x] Set DDRAM address (high level interface via `seek()`)
 - [x] Set CGRAM address
