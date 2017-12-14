@@ -1,8 +1,8 @@
 [package]
 name = "clerk"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Hendrik Kunert <hendrik.kunert@henku.de>"]
-description = "A hardware agnostic HD44780 LCD controlling library."
+description = "A fully featured hardware agnostic HD44780 LCD controlling library."
 documentation = "https://docs.rs/clerk"
 repository = "https://github.com/kunerd/clerk"
 readme = "README.md"
@@ -17,5 +17,4 @@ travis-ci = { repository = "kunerd/clerk", branch = "master" }
 bitflags = "1.0.1"
 
 [dev-dependencies]
-itertools = "0.7.2"
 sysfs_gpio = "0.5.1"

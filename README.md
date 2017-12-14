@@ -23,7 +23,7 @@ This library is actively maintained and most of the features described in the HD
 - [x] Read busy flag and cursor address
 
 ### TODOs
-- unit and integration testing
+- more unit and integration testing
 - error handling
 - feature flags to allow additional (high level) functions
 - conditional compilation for different hardware variants (read-only, read-write)
