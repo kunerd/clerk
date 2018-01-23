@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use super::address::Address;
+use super::address::{Address, Overflow};
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
 use hal::{Init, ReadMode, Receive, Send, WriteMode};
 
@@ -28,8 +28,15 @@ bitflags! {
     }
 }
 
-pub struct CgRam;
-pub struct DdRam;
+pub enum DdRam {}
+impl Overflow for DdRam {
+    const UPPER_BOUND: u8 = 128;
+}
+
+pub enum CgRam {}
+impl Overflow for CgRam {
+    const UPPER_BOUND: u8 = 64;
+}
 
 /// Enumeration of possible methods to shift a cursor or display.
 pub enum ShiftTo {
@@ -49,7 +56,7 @@ impl ShiftTo {
 }
 
 /// Enumeration of possible methods to seek within a `Display` object.
-pub enum SeekFrom<T: Into<Address>> {
+pub enum SeekFrom<T: Into<Address<DdRam>>> {
     /// Sets the cursor position to `Home` plus the provided number of bytes.
     Home(u8),
     /// Sets the cursor to the current position plus the specified number of bytes.
@@ -58,23 +65,25 @@ pub enum SeekFrom<T: Into<Address>> {
     Line { line: T, bytes: u8 },
 }
 
+pub type DdRamDisplay<P, U> = Display<P, U, DdRam>;
+
 /// A HD44780 compliant display.
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
 /// liquid crystal display (LCD).
 pub struct Display<P, U, RT>
 where
-    U: Into<Address> + Home,
+    U: Into<Address<RT>> + Home,
 {
     connection: P,
-    cursor_address: Address,
+    cursor_address: Address<RT>,
     _ram_type: PhantomData<RT>,
     _line_marker: PhantomData<U>,
 }
 
 impl<P, U> Display<P, U, DdRam>
 where
-    U: Into<Address> + Home,
+    U: Into<Address<DdRam>> + Home,
 {
     /// Create a new `Display` using the given connection.
     pub fn new(connection: P) -> Display<P, U, DdRam> {
@@ -90,7 +99,8 @@ where
 impl<P, U, RT> Display<P, U, RT>
 where
     P: Init + Send + Receive,
-    U: Into<Address> + Home,
+    U: Into<Address<RT>> + Home,
+    RT: Overflow,
 {
     const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
     const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
@@ -215,8 +225,8 @@ where
 
 impl<P, U> Display<P, U, DdRam>
 where
-    U: Into<Address> + Home,
     P: Send,
+    U: Into<Address<DdRam>> + Into<Address<CgRam>> + Home,
 {
     /// Seeks to an offset in display data RAM.
     pub fn seek(&mut self, pos: SeekFrom<U>) {
@@ -239,42 +249,44 @@ where
     pub fn seek_cgram(self, address: u8) -> Display<P, U, CgRam> {
         let mut cgram_display = Display {
             connection: self.connection,
-            cursor_address: Address::from(0),
+            cursor_address: Address::<CgRam>::from(0),
             _ram_type: PhantomData::<CgRam>,
             _line_marker: PhantomData,
         };
 
-        cgram_display.seek(SeekFrom::Home(address));
+        cgram_display.seek(SeekCgRamFrom::Home(address));
 
         cgram_display
     }
 }
 
+pub enum SeekCgRamFrom<T> {
+    Home(T),
+    Current(T),
+}
+
 impl<P, U> Display<P, U, CgRam>
 where
-    U: Into<Address> + Home,
     P: Send,
+    U: Into<Address<CgRam>> + Into<Address<DdRam>> + Home,
 {
-    /// Seeks to an offset in display data RAM.
-    // FIXME seek from character address, character line
-    pub fn seek(&mut self, pos: SeekFrom<U>) {
+    pub fn seek(&mut self, pos: SeekCgRamFrom<u8>) {
         // FIXME remove magic number
         let mut cmd = 0b0100_0000;
 
-        let (start, addr) = match pos {
-            SeekFrom::Home(bytes) => (U::FIRST_LINE_ADDRESS.into(), bytes.into()),
-            SeekFrom::Current(bytes) => (self.cursor_address, bytes.into()),
-            SeekFrom::Line { line, bytes } => (line.into(), bytes.into()),
+        let addr = match pos {
+            SeekCgRamFrom::Home(offset) => offset.into(),
+            SeekCgRamFrom::Current(offset) => self.cursor_address + offset.into(),
         };
 
-        self.cursor_address = start + addr;
+        self.cursor_address = addr.into();
 
         cmd |= u8::from(self.cursor_address);
 
         self.connection.send(WriteMode::Command(cmd));
     }
 
-    pub fn seek_cgram(self, address: u8) -> Display<P, U, DdRam> {
+    pub fn seek_ddram(self, address: u8) -> Display<P, U, DdRam> {
         let mut ddram_display = Display {
             connection: self.connection,
             cursor_address: Address::from(0),
