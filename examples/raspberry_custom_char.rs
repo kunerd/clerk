@@ -4,7 +4,8 @@ extern crate clerk;
 extern crate sysfs_gpio;
 
 use clerk::{CursorBlinking, CursorState, DataPins4Lines, DefaultLines, Display,
-            DisplayControlBuilder, DisplayState, FunctionSetBuilder, Pins, SeekFrom};
+            DisplayControlBuilder, DisplayState, FunctionSetBuilder, LineNumber, Pins,
+            SeekCgRamFrom};
 
 mod utils;
 use utils::ExternPin;
@@ -23,9 +24,9 @@ fn main() {
         },
     };
 
-    let mut lcd: Display<_, DefaultLines> = Display::new(pins.into_connection::<CustomDelay>());
+    let lcd: Display<_, DefaultLines> = Display::new(pins.into_connection::<CustomDelay>());
 
-    lcd.init(&FunctionSetBuilder::default());
+    lcd.init(FunctionSetBuilder::default().set_line_number(LineNumber::Two));
 
     lcd.set_display_control(
         DisplayControlBuilder::default()
@@ -34,26 +35,19 @@ fn main() {
             .set_cursor_blinking(CursorBlinking::On),
     );
 
-    lcd.seek_cgram(SeekFrom::Home(0));
+    let mut lcd = lcd.seek_cgram(0);
     let character = [
-        0b0_1110,
-        0b1_0101,
-        0b1_1111,
-        0b1_0101,
-        0b0_1110,
-        0b0_0100,
-        0b0_0100,
-        0b1_1111,
+        0b0_1110, 0b1_0101, 0b1_1111, 0b1_0101, 0b0_1110, 0b0_0100, 0b0_0100, 0b1_1111
     ];
     lcd.write_message(str::from_utf8(&character).unwrap());
 
-    lcd.seek_cgram(SeekFrom::Home(0));
+    lcd.seek(SeekCgRamFrom::Home(0));
     println!("Created custom char is: ");
     for _ in 0..8 {
         let value = lcd.read_byte();
         println!("{:#08b}", value)
     }
 
-    lcd.seek(SeekFrom::Home(0));
+    let mut lcd = lcd.seek_ddram(0);
     lcd.write(0);
 }

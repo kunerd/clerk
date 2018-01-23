@@ -4,7 +4,8 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 
 use clerk::{DefaultLines, Delay, Display, DisplayControlBuilder, EntryModeBuilder,
-            FunctionSetBuilder, SeekFrom, ShiftTo, Send, Receive, Init, WriteMode, ReadMode};
+            FunctionSetBuilder, Init, ReadMode, Receive, SeekCgRamFrom, SeekFrom, Send, ShiftTo,
+            WriteMode};
 
 struct ConnectionMock {
     init_calls: RefCell<u8>,
@@ -231,9 +232,9 @@ fn test_seek_from_line() {
 
 #[test]
 fn test_seek_cgram_from_home() {
-    let mut lcd = setup_display();
+    let lcd = setup_display();
 
-    lcd.seek_cgram(SeekFrom::Home(3));
+    let lcd = lcd.seek_cgram(3);
 
     let connection = lcd.get_connection();
     let send_bytes = connection.send_bytes.borrow_mut();
@@ -242,10 +243,10 @@ fn test_seek_cgram_from_home() {
 
 #[test]
 fn test_seek_cgram_from_current() {
-    let mut lcd = setup_display();
+    let lcd = setup_display();
 
-    lcd.seek_cgram(SeekFrom::Home(2));
-    lcd.seek_cgram(SeekFrom::Current(1));
+    let mut lcd = lcd.seek_cgram(2);
+    lcd.seek(SeekCgRamFrom::Current(1));
 
     let connection = lcd.get_connection();
     let send_bytes = connection.send_bytes.borrow_mut();
@@ -253,21 +254,21 @@ fn test_seek_cgram_from_current() {
     assert_eq!(send_bytes[1], WriteMode::Command(0b0100_0011));
 }
 
-#[test]
-#[ignore]
+// #[test]
+// #[ignore]
 // TODO: needs clarification: line does not make sense here,  For 5×8 dots, eight character
 // patterns can be written, and for 5×10 dots, four character patterns can be written
-fn test_seek_cgram_from_line() {
-    let mut lcd = setup_display();
+// fn test_seek_cgram_from_line() {
+//     let mut lcd = setup_display();
 
-    lcd.seek_cgram(SeekFrom::Home(2));
-    lcd.seek_cgram(SeekFrom::Current(1));
+//     lcd.seek_cgram(SeekFrom::Home(2));
+//     lcd.seek_cgram(SeekFrom::Current(1));
 
-    let connection = lcd.get_connection();
-    let send_bytes = connection.send_bytes.borrow_mut();
-    assert_eq!(send_bytes[0], WriteMode::Command(0b0100_0010));
-    assert_eq!(send_bytes[1], WriteMode::Command(0b0100_0011));
-}
+//     let connection = lcd.get_connection();
+//     let send_bytes = connection.send_bytes.borrow_mut();
+//     assert_eq!(send_bytes[0], WriteMode::Command(0b0100_0010));
+//     assert_eq!(send_bytes[1], WriteMode::Command(0b0100_0011));
+// }
 
 #[test]
 fn test_write() {

@@ -20,6 +20,6 @@ pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
-pub use display::{Display, SeekFrom, ShiftTo};
+pub use display::{DdRamDisplay as Display, SeekCgRamFrom, SeekFrom, ShiftTo};
 pub use hal::{DataPins4Lines, DataPins8Lines, Delay, Direction, DisplayHardwareLayer, Init, Level,
               ParallelConnection, Pins, ReadMode, Receive, Send, WriteMode};

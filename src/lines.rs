@@ -1,4 +1,4 @@
-use address::Address;
+use address::{Address, Overflow};
 
 const SECOND_LINE_ADDRESS: u8 = 0x40;
 
@@ -15,7 +15,7 @@ pub enum DefaultLines {
 
 impl Home for DefaultLines {}
 
-impl From<DefaultLines> for Address {
+impl<T: Overflow> From<DefaultLines> for Address<T> {
     /// Returns the hardware address of the line.
     fn from(line: DefaultLines) -> Self {
         let raw_addr = match line {
