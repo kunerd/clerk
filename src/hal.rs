@@ -51,6 +51,7 @@ impl From<Nibble> for u8 {
 }
 
 /// This trait is used to provide an initialization implementation for a [`Display`] connection.
+///
 /// [`Display`]: struct.Display.html
 pub trait Init {
     /// Initializes the connection.
@@ -58,6 +59,7 @@ pub trait Init {
 }
 
 /// This trait is used to provide an implementation for sending data via a [`Display`] connection.
+///
 /// [`Display`]: struct.Display.html
 pub trait Send {
     /// Sends data via the connection.
@@ -65,6 +67,7 @@ pub trait Send {
 }
 
 /// This trait is used to provide an implementation for receiving data via a [`Display`] connection.
+///
 /// [`Display`]: struct.Display.html
 pub trait Receive {
     fn receive(&self, mode: ReadMode) -> u8;
@@ -290,7 +293,7 @@ where
     P7: DisplayHardwareLayer,
 {
     fn init(&self) {
-// TODO maybe not needed because of pin state config
+        // TODO maybe not needed because of pin state config
         self.data0.init();
         self.data1.init();
         self.data2.init();
