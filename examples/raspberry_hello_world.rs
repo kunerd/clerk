@@ -36,7 +36,7 @@ fn main() {
 
     lcd.seek(SeekFrom::Line {
         line: DefaultLines::Two,
-        bytes: 5,
+        offset: 5,
     });
 
     lcd.write_message("world!");
