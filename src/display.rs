@@ -128,6 +128,7 @@ where
     /// Shifts the cursor to the left or the right by the given offset.
     ///
     /// **Note:** Consider to use [seek()](struct.Display.html#method.seek) for longer distances.
+    #[cfg_attr(feature = "cargo-clippy", allow(expl_impl_clone_on_copy))]
     pub fn shift_cursor(&mut self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
@@ -306,7 +307,6 @@ where
 
     /// Seeks to an offset in character generator RAM.
     pub fn seek(&mut self, pos: SeekCgRamFrom) {
-        // FIXME remove magic number
         let mut cmd = Self::SEEK_CGRAM_CMD;
 
         let addr = match pos {
@@ -314,7 +314,7 @@ where
             SeekCgRamFrom::Current(offset) => self.cursor_address + offset.into(),
         };
 
-        self.cursor_address = addr.into();
+        self.cursor_address = addr;
 
         cmd |= u8::from(self.cursor_address);
 

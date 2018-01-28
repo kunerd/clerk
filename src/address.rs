@@ -20,6 +20,7 @@ impl<T> From<Address<T>> for u8 {
     }
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(expl_impl_clone_on_copy))]
 impl<T> Clone for Address<T> {
     fn clone(&self) -> Self {
         *self
@@ -27,7 +28,6 @@ impl<T> Clone for Address<T> {
 }
 
 impl<T> Copy for Address<T> {}
-
 
 impl<T: Overflow> Default for Address<T> {
     fn default() -> Self {
