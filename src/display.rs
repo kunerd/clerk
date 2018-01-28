@@ -55,16 +55,6 @@ impl ShiftTo {
     }
 }
 
-/// Enumeration of possible methods to seek within a `Display` object.
-pub enum SeekFrom<T: Into<Address<DdRam>>> {
-    /// Sets the cursor position to `Home` plus the provided number of bytes.
-    Home(u8),
-    /// Sets the cursor to the current position plus the specified number of bytes.
-    Current(u8),
-    /// Sets the cursor position to the given line plus the specified number of bytes.
-    Line { line: T, bytes: u8 },
-}
-
 pub type DdRamDisplay<P, U> = Display<P, U, DdRam>;
 
 /// A HD44780 compliant display.
@@ -222,21 +212,57 @@ where
     }
 }
 
+/// Enumeration of possible methods to seek within the display data RAM (DDRAM).
+pub enum SeekFrom<T>
+where
+    T: Into<Address<DdRam>>,
+{
+    /// Sets the cursor position to `Home` plus the provided number of bytes.
+    Home(u8),
+    /// Sets the cursor to the current position plus the specified number of bytes.
+    Current(u8),
+    /// Sets the cursor position to the given line plus the specified number of bytes.
+    Line { line: T, offset: u8 },
+}
+
+/// Enumeration of possible methods to set an address in display data RAM (DDRAM).
+pub enum SetFrom<T>
+where
+    T: Into<Address<DdRam>>,
+{
+    /// Sets the cursor position to `Home` plus the provided number of bytes.
+    Home(u8),
+    /// Sets the cursor position to the given line plus the specified number of bytes.
+    Line { line: T, offset: u8 },
+}
+
+impl<T> From<SetFrom<T>> for SeekFrom<T>
+where
+    T: Into<Address<DdRam>>,
+{
+    fn from(pos: SetFrom<T>) -> Self {
+        match pos {
+            SetFrom::Home(offset) => SeekFrom::Home(offset),
+            SetFrom::Line { line, offset } => SeekFrom::Line { line, offset },
+        }
+    }
+}
 
 impl<P, U> Display<P, U, DdRam>
 where
     P: Send,
     U: Into<Address<DdRam>> + Into<Address<CgRam>> + Home,
 {
+    const SEEK_DDRAM_CMD: u8 = 0b1000_0000;
+
     /// Seeks to an offset in display data RAM.
     pub fn seek(&mut self, pos: SeekFrom<U>) {
-        // FIXME remove magic number
-        let mut cmd = 0b1000_0000;
+        let mut cmd = Self::SEEK_DDRAM_CMD;
 
         let (start, addr) = match pos {
-            SeekFrom::Home(bytes) => (U::FIRST_LINE_ADDRESS.into(), bytes.into()),
-            SeekFrom::Current(bytes) => (self.cursor_address, bytes.into()),
-            SeekFrom::Line { line, bytes } => (line.into(), bytes.into()),
+            SeekFrom::Home(offset) => (U::FIRST_LINE_ADDRESS.into(), offset.into()),
+            SeekFrom::Current(offset) => (self.cursor_address, offset.into()),
+            SeekFrom::Line { line, offset } => (line.into(), offset.into()),
         };
 
         self.cursor_address = start + addr;
@@ -246,7 +272,10 @@ where
         self.connection.send(WriteMode::Command(cmd));
     }
 
-    pub fn seek_cgram(self, address: u8) -> Display<P, U, CgRam> {
+    /// Switches to the character generator RAM (CGRAM) and set the cursor's
+    /// address to the given value. After that all following instructions will
+    /// operate on this RAM type until it is switched back to display data RAM.
+    pub fn set_cgram_address(self, address: u8) -> Display<P, U, CgRam> {
         let mut cgram_display = Display {
             connection: self.connection,
             cursor_address: Address::<CgRam>::from(0),
@@ -260,9 +289,12 @@ where
     }
 }
 
-pub enum SeekCgRamFrom<T> {
-    Home(T),
-    Current(T),
+/// Enumeration of possible methods to seek within the character generator RAM (CGRAM).
+pub enum SeekCgRamFrom {
+    /// Sets the cursor position to `Home` plus the provided number of bytes.
+    Home(u8),
+    /// Sets the cursor to the current position plus the specified number of bytes.
+    Current(u8),
 }
 
 impl<P, U> Display<P, U, CgRam>
@@ -270,9 +302,12 @@ where
     P: Send,
     U: Into<Address<CgRam>> + Into<Address<DdRam>> + Home,
 {
-    pub fn seek(&mut self, pos: SeekCgRamFrom<u8>) {
+    const SEEK_CGRAM_CMD: u8 = 0b0100_0000;
+
+    /// Seeks to an offset in character generator RAM.
+    pub fn seek(&mut self, pos: SeekCgRamFrom) {
         // FIXME remove magic number
-        let mut cmd = 0b0100_0000;
+        let mut cmd = Self::SEEK_CGRAM_CMD;
 
         let addr = match pos {
             SeekCgRamFrom::Home(offset) => offset.into(),
@@ -286,7 +321,10 @@ where
         self.connection.send(WriteMode::Command(cmd));
     }
 
-    pub fn seek_ddram(self, address: u8) -> Display<P, U, DdRam> {
+    /// Switches to the display data RAM (DDRAM) and set the cursor's address to
+    /// the given value. After that all following instructions will operate on
+    /// this RAM type until it is switched back to character generator RAM.
+    pub fn set_ddram_address(self, pos: SetFrom<U>) -> Display<P, U, DdRam> {
         let mut ddram_display = Display {
             connection: self.connection,
             cursor_address: Address::from(0),
@@ -294,7 +332,7 @@ where
             _line_marker: PhantomData,
         };
 
-        ddram_display.seek(SeekFrom::Home(address));
+        ddram_display.seek(pos.into());
 
         ddram_display
     }

@@ -5,7 +5,7 @@ extern crate sysfs_gpio;
 
 use clerk::{CursorBlinking, CursorState, DataPins4Lines, DefaultLines, Display,
             DisplayControlBuilder, DisplayState, FunctionSetBuilder, LineNumber, Pins,
-            SeekCgRamFrom};
+            SeekCgRamFrom, SetFrom};
 
 mod utils;
 use utils::ExternPin;
@@ -35,7 +35,7 @@ fn main() {
             .set_cursor_blinking(CursorBlinking::On),
     );
 
-    let mut lcd = lcd.seek_cgram(0);
+    let mut lcd = lcd.set_cgram_address(0);
     let character = [
         0b0_1110, 0b1_0101, 0b1_1111, 0b1_0101, 0b0_1110, 0b0_0100, 0b0_0100, 0b1_1111
     ];
@@ -48,6 +48,6 @@ fn main() {
         println!("{:#08b}", value)
     }
 
-    let mut lcd = lcd.seek_ddram(0);
+    let mut lcd = lcd.set_ddram_address(SetFrom::Home(0));
     lcd.write(0);
 }
