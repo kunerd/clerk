@@ -222,7 +222,7 @@ fn test_seek_from_line() {
 
     lcd.seek(SeekFrom::Line {
         line: DefaultLines::Two,
-        bytes: 3,
+        offset: 3,
     });
 
     let connection = lcd.get_connection();
@@ -231,10 +231,10 @@ fn test_seek_from_line() {
 }
 
 #[test]
-fn test_seek_cgram_from_home() {
+fn test_set_cgram_address_from_home() {
     let lcd = setup_display();
 
-    let lcd = lcd.seek_cgram(3);
+    let lcd = lcd.set_cgram_address(3);
 
     let connection = lcd.get_connection();
     let send_bytes = connection.send_bytes.borrow_mut();
@@ -245,7 +245,7 @@ fn test_seek_cgram_from_home() {
 fn test_seek_cgram_from_current() {
     let lcd = setup_display();
 
-    let mut lcd = lcd.seek_cgram(2);
+    let mut lcd = lcd.set_cgram_address(2);
     lcd.seek(SeekCgRamFrom::Current(1));
 
     let connection = lcd.get_connection();
@@ -253,22 +253,6 @@ fn test_seek_cgram_from_current() {
     assert_eq!(send_bytes[0], WriteMode::Command(0b0100_0010));
     assert_eq!(send_bytes[1], WriteMode::Command(0b0100_0011));
 }
-
-// #[test]
-// #[ignore]
-// TODO: needs clarification: line does not make sense here,  For 5×8 dots, eight character
-// patterns can be written, and for 5×10 dots, four character patterns can be written
-// fn test_seek_cgram_from_line() {
-//     let mut lcd = setup_display();
-
-//     lcd.seek_cgram(SeekFrom::Home(2));
-//     lcd.seek_cgram(SeekFrom::Current(1));
-
-//     let connection = lcd.get_connection();
-//     let send_bytes = connection.send_bytes.borrow_mut();
-//     assert_eq!(send_bytes[0], WriteMode::Command(0b0100_0010));
-//     assert_eq!(send_bytes[1], WriteMode::Command(0b0100_0011));
-// }
 
 #[test]
 fn test_write() {
