@@ -24,7 +24,7 @@ fn main() {
         },
     };
 
-    let lcd: Display<_, DefaultLines> = Display::new(pins.into_connection::<CustomDelay>());
+    let lcd: Display<_, DefaultLines> = Display::new(pins.into_connection::<CustomDelay, CustomDelay>(CustomDelay));
 
     lcd.init(FunctionSetBuilder::default().set_line_number(LineNumber::Two));
 

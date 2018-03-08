@@ -7,6 +7,7 @@
 
 #[macro_use]
 extern crate bitflags;
+extern crate embedded_hal;
 
 mod hal;
 mod lines;
@@ -21,5 +22,7 @@ pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, Di
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
 pub use display::{DdRamDisplay as Display, SeekCgRamFrom, SeekFrom, SetFrom, ShiftTo};
-pub use hal::{DataPins4Lines, DataPins8Lines, Delay, Direction, DisplayHardwareLayer, Init, Level,
+pub use hal::{Delay, DataPins4Lines, DataPins8Lines, Direction, DisplayHardwareLayer, Init, Level,
               ParallelConnection, Pins, ReadMode, Receive, Send, WriteMode};
+
+pub use embedded_hal::blocking::delay::DelayUs;
