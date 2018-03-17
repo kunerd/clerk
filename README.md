@@ -32,11 +32,13 @@ This library is actively maintained and most of the features described in the HD
 ### Documentation
 https://docs.rs/clerk
 
-## Getting help
-Just [create a ticket](https://github.com/kunerd/clerk/issues/new).
+## Getting started/help
+Have a look at the [How-to](https://github.com/kunerd/clerk/wiki/How-to-use-HD44780-LCD-from-Rust) for a detailed description on getting started with `clerk` on a RaspberryPi.
+
+If you have any questions, just [create a ticket](https://github.com/kunerd/clerk/issues/new) or ping me on Mozillas IRC channels `#rust` or `rust-embedded`.
 
 ## Contribution
-All kinds of contributions are highly welcome (see TODOs). [Create tickets](https://github.com/kunerd/clerk/issues/new) with feature requests, design ideas and so on. You can also find me on Mozillas IRC channel #rust.
+All kinds of contributions are highly welcome (see TODOs). [Create tickets](https://github.com/kunerd/clerk/issues/new) with feature requests, design ideas and so on. You can also find me on Mozillas IRC channel `#rust` and `#rust-embedded`.
 
 ## License
 This project is licensed under MIT license ([LICENSE](docs/CONTRIBUTING.md) or https://opensource.org/licenses/MIT)
