@@ -22,7 +22,7 @@ pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, Di
 pub use entry_mode::EntryModeBuilder;
 pub use function_set::{FunctionSetBuilder, LineNumber};
 pub use display::{DdRamDisplay as Display, SeekCgRamFrom, SeekFrom, SetFrom, ShiftTo};
-pub use hal::{Delay, DataPins4Lines, DataPins8Lines, Direction, DisplayHardwareLayer, Init, Level,
+pub use hal::{Delay, DataPins4Lines, DataPins8Lines, Direction, Init, Level,
               ParallelConnection, Pins, ReadMode, Receive, Send, WriteMode};
 
 pub use embedded_hal::blocking::delay::DelayUs;

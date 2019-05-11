@@ -88,15 +88,15 @@ where
 
 impl<P, U, RT> Display<P, U, RT>
 where
-    P: Init + Send + SendInit + Receive,
+    P: Send + SendInit,
     U: Into<Address<RT>> + Home,
     RT: Overflow,
 {
     // const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
     // const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
 
-    pub fn init(&self, builder: &FunctionSetBuilder) {
-        self.connection.init();
+    pub fn init(&mut self, builder: &FunctionSetBuilder) {
+        // self.connection.init();
 
         let cmd = builder.build_command();
         let cmd = WriteMode::Command(cmd);
@@ -104,24 +104,24 @@ where
         self.init_by_instruction(cmd);
     }
 
-    fn init_by_instruction(&self, function_set: WriteMode) {
+    fn init_by_instruction(&mut self, function_set: WriteMode) {
         // self.connection.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
         // self.connection.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
         self.connection.send_init();
 
         self.connection.send(function_set);
 
-        self.clear();
+        // self.clear();
     }
 
     /// Sets the entry mode of the display.
-    pub fn set_entry_mode(&self, builder: &EntryModeBuilder) {
+    pub fn set_entry_mode(&mut self, builder: &EntryModeBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
         self.connection.send(cmd);
     }
 
     /// Sets the display control settings.
-    pub fn set_display_control(&self, builder: &DisplayControlBuilder) {
+    pub fn set_display_control(&mut self, builder: &DisplayControlBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
         self.connection.send(cmd);
     }
@@ -151,13 +151,13 @@ where
     ///
     /// When the displayed data is shifted repeatedly each line moves only horizontally.
     /// The second line display does not shift into the first line position.
-    pub fn shift(&self, direction: ShiftTo) {
+    pub fn shift(&mut self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
         self.raw_shift(ShiftTarget::DISPLAY, offset, raw_direction);
     }
 
-    fn raw_shift(&self, shift_type: ShiftTarget, offset: u8, raw_direction: ShiftDirection) {
+    fn raw_shift(&mut self, shift_type: ShiftTarget, offset: u8, raw_direction: ShiftDirection) {
         let mut cmd = Instructions::SHIFT.bits();
 
         cmd |= shift_type.bits();
@@ -172,10 +172,9 @@ where
     /// shifts.
     ///
     /// It also sets the cursor's move direction to `Increment`.
-    pub fn clear(&self) {
+    pub fn clear(&mut self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
         self.connection.send(WriteMode::Command(cmd));
-
         // let (busy_flag, _) = self.read_busy_flag();
         // let mut busy_flag = busy_flag;
 
@@ -193,21 +192,21 @@ where
     }
 
     /// Reads a single byte from data RAM.
-    pub fn read_byte(&mut self) -> u8 {
-        self.cursor_address += Address::from(1);
-        self.connection.receive(ReadMode::Data)
-    }
+    // pub fn read_byte(&mut self) -> u8 {
+    //     self.cursor_address += Address::from(1);
+    //     self.connection.receive(ReadMode::Data)
+    // }
 
     /// Reads busy flag and the cursor's current address.
-    pub fn read_busy_flag(&self) -> (bool, u8) {
-        let byte = self.connection.receive(ReadMode::BusyFlag);
+    // pub fn read_busy_flag(&self) -> (bool, u8) {
+    //     let byte = self.connection.receive(ReadMode::BusyFlag);
 
-        let busy_flag = (byte & 0b1000_0000) != 0;
+    //     let busy_flag = (byte & 0b1000_0000) != 0;
 
-        let address = byte & 0b0111_1111;
+    //     let address = byte & 0b0111_1111;
 
-        (busy_flag, address)
-    }
+    //     (busy_flag, address)
+    // }
 
     /// Writes the given message to data or character generator RAM, depending on the previous
     /// seek operation.
