@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 use core::cell::RefCell;
-use embedded_hal::blocking::delay::DelayUs;
+use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 /// Enumeration possible write operations.
 #[derive(Debug, PartialEq)]
@@ -60,6 +60,13 @@ pub trait Init {
     fn init(&self);
 }
 
+pub trait SendInit {
+    const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
+    const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
+
+    fn send_init(&self);
+}
+
 /// This trait is used to provide an implementation for sending data via a [`Display`] connection.
 ///
 /// [`Display`]: struct.Display.html
@@ -102,11 +109,11 @@ pub trait DisplayHardwareLayer {
 /// by the libary user.
 pub trait Delay {
     /// The time (ns) between register select (RS) and read/write (R/W) to enable signal (E).
-    const ADDRESS_SETUP_TIME: u8 = 1; //60;
+    const ADDRESS_SETUP_TIME: u8 = 60; //60;
     /// The duration (ns) the enable signal is set to `High`.
-    const ENABLE_PULSE_WIDTH: u8 = 1; //450;
+    const ENABLE_PULSE_WIDTH: u8 = 255; //450;
     /// The duration (ns) the data pins will be set after the enable signal was dropped.
-    const DATA_HOLD_TIME: u8 = 1; //20;
+    const DATA_HOLD_TIME: u8 = 20; //20;
     /// The maximum execution time of instruction commands.
     const COMMAND_EXECUTION_TIME: u8 = 37; //37;
 }
@@ -133,7 +140,7 @@ impl<RS, R, E, D> Pins<RS, R, E, D> {
             enable: self.enable,
             data: self.data,
             delay: RefCell::new(delay),
-            _timing: PhantomData
+            _timing: PhantomData,
         }
     }
 }
@@ -149,7 +156,7 @@ pub struct ParallelConnection<RS, R, E, D, T, DT> {
     enable: E,
     data: D,
     delay: RefCell<T>,
-    _timing: PhantomData<DT>
+    _timing: PhantomData<DT>,
 }
 
 impl<RS, R, E, D, T, DT> Init for ParallelConnection<RS, R, E, D, T, DT>
@@ -159,7 +166,7 @@ where
     E: DisplayHardwareLayer,
     D: Init,
     T: DelayUs<u8>,
-    DT: Delay
+    DT: Delay,
 {
     fn init(&self) {
         self.register_select.init();
@@ -331,11 +338,59 @@ where
     }
 }
 
+impl<RS, R, E, T, DT, P4, P5, P6, P7> SendInit
+    for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T, DT>
+where
+    RS: DisplayHardwareLayer,
+    R: DisplayHardwareLayer,
+    E: DisplayHardwareLayer,
+    T: DelayUs<u8> + DelayMs<u8>,
+    DT: Delay,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+{
+    fn send_init(&self) {
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_ms(40);
+        }
+
+        self.read.set_level(Level::Low);
+        let (level, value) = Self::FIRST_4BIT_INIT_INSTRUCTION.into();
+        self.register_select.set_level(level);
+
+        write_4bit(self, Nibble::Upper(value));
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_ms(5);
+        }
+        write_4bit(self, Nibble::Lower(value));
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_us(100);
+        }
+
+        let (_, value) = Self::SECOND_4BIT_INIT_INSTRUCTION.into();
+        write_4bit(self, Nibble::Upper(value));
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_ms(5);
+        }
+        write_4bit(self, Nibble::Lower(value));
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_us(DT::COMMAND_EXECUTION_TIME);
+        }
+    }
+}
+
 impl<RS, R, E, T, DT, P4, P5, P6, P7> SendRaw
     for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T, DT>
 where
     E: DisplayHardwareLayer,
-    T: DelayUs<u8>,
+    T: DelayUs<u8> + DelayUs<u8>,
     DT: Delay,
     P4: DisplayHardwareLayer,
     P5: DisplayHardwareLayer,
@@ -350,6 +405,11 @@ where
 
         write_4bit(self, Nibble::Upper(byte));
         write_4bit(self, Nibble::Lower(byte));
+
+        {
+            let mut delay = self.delay.borrow_mut();
+            delay.delay_us(DT::COMMAND_EXECUTION_TIME);
+        }
     }
 }
 

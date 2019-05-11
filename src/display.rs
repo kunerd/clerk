@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use super::address::{Address, Overflow};
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
-use hal::{Init, ReadMode, Receive, Send, WriteMode};
+use hal::{Init, ReadMode, Receive, Send, SendInit, WriteMode};
 
 const LCD_WIDTH: usize = 16;
 
@@ -88,12 +88,12 @@ where
 
 impl<P, U, RT> Display<P, U, RT>
 where
-    P: Init + Send + Receive,
+    P: Init + Send + SendInit + Receive,
     U: Into<Address<RT>> + Home,
     RT: Overflow,
 {
-    const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
-    const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
+    // const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
+    // const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
 
     pub fn init(&self, builder: &FunctionSetBuilder) {
         self.connection.init();
@@ -105,8 +105,9 @@ where
     }
 
     fn init_by_instruction(&self, function_set: WriteMode) {
-        self.connection.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
-        self.connection.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
+        // self.connection.send(Self::FIRST_4BIT_INIT_INSTRUCTION);
+        // self.connection.send(Self::SECOND_4BIT_INIT_INSTRUCTION);
+        self.connection.send_init();
 
         self.connection.send(function_set);
 
@@ -174,6 +175,14 @@ where
     pub fn clear(&self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
         self.connection.send(WriteMode::Command(cmd));
+
+        // let (busy_flag, _) = self.read_busy_flag();
+        // let mut busy_flag = busy_flag;
+
+        // while busy_flag == true {
+        //     let (bf, _) = self.read_busy_flag();
+        //     busy_flag = bf;
+        // }
     }
 
     /// Writes the given byte to data or character generator RAM, depending on the previous
