@@ -55,7 +55,7 @@ impl From<Nibble> for u8 {
 /// [`Display`]: struct.Display.html
 pub trait Init {
     /// Initializes the connection.
-    fn init(&self);
+    fn init(&mut self);
 }
 
 /// This trait is used to provide an implementation for sending data via a [`Display`] connection.
@@ -63,37 +63,37 @@ pub trait Init {
 /// [`Display`]: struct.Display.html
 pub trait Send {
     /// Sends data via the connection.
-    fn send(&self, mode: WriteMode);
+    fn send(&mut self, mode: WriteMode);
 }
 
 /// This trait is used to provide an implementation for receiving data via a [`Display`] connection.
 ///
 /// [`Display`]: struct.Display.html
 pub trait Receive {
-    fn receive(&self, mode: ReadMode) -> u8;
+    fn receive(&mut self, mode: ReadMode) -> u8;
 }
 
 pub trait SendRaw {
-    fn send_byte(&self, byte: u8);
+    fn send_byte(&mut self, byte: u8);
 }
 
 pub trait ReceiveRaw {
-    fn receive_byte(&self) -> u8;
+    fn receive_byte(&mut self) -> u8;
 }
 
 /// The `DisplayHardwareLayer` trait is intended to be implemented by the library user as a thin
 /// wrapper around the hardware specific system calls.
 pub trait DisplayHardwareLayer {
     /// Initializes an I/O pin.
-    fn init(&self) {}
+    fn init(&mut self) {}
     /// Cleanup an I/O pin.
-    fn cleanup(&self) {}
+    fn cleanup(&mut self) {}
 
-    fn set_direction(&self, Direction);
+    fn set_direction(&mut self, direction: Direction);
     /// Sets a value on an I/O pin.
-    fn set_level(&self, Level);
+    fn set_level(&mut self, level: Level);
 
-    fn get_value(&self) -> u8;
+    fn get_value(&mut self) -> u8;
 }
 
 /// The `Delay` trait is used to adapt the timing to the specific hardware and must be implemented
@@ -159,15 +159,20 @@ pub struct ParallelConnection<RS, R, E, D, T> {
     _delay_marker: PhantomData<T>,
 }
 
-impl<RS, R, E, D, T> Init for ParallelConnection<RS, R, E, D, T>
+impl<RS, R, E, T, P4, P5, P6, P7> Init
+    for ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>
 where
     RS: DisplayHardwareLayer,
     R: DisplayHardwareLayer,
     E: DisplayHardwareLayer,
-    D: Init,
+    P4: DisplayHardwareLayer,
+    P5: DisplayHardwareLayer,
+    P6: DisplayHardwareLayer,
+    P7: DisplayHardwareLayer,
+    DataPins4Lines<P4, P5, P6, P7>: Init,
     T: Delay,
 {
-    fn init(&self) {
+    fn init(&mut self) {
         self.register_select.init();
         self.register_select.set_direction(Direction::Out);
 
@@ -178,6 +183,20 @@ where
         self.enable.set_direction(Direction::Out);
 
         self.data.init();
+
+        self.register_select.set_level(Level::Low);
+        self.read.set_level(Level::Low);
+        self.enable.set_level(Level::Low);
+
+        T::delay_us(40_000);
+        write_4bit(self, Nibble::Lower(0x03));
+        T::delay_us(5000);
+        write_4bit(self, Nibble::Lower(0x03));
+        T::delay_us(100);
+        write_4bit(self, Nibble::Lower(0x03));
+        T::delay_us(100);
+        write_4bit(self, Nibble::Lower(0x02));
+        T::delay_us(100);
     }
 }
 
@@ -186,14 +205,17 @@ where
     Self: SendRaw,
     RS: DisplayHardwareLayer,
     R: DisplayHardwareLayer,
+    T: Delay
 {
-    fn send(&self, mode: WriteMode) {
+    fn send(&mut self, mode: WriteMode) {
         self.read.set_level(Level::Low);
 
         let (level, value) = mode.into();
         self.register_select.set_level(level);
 
         self.send_byte(value);
+
+        T::delay_us(T::COMMAND_EXECUTION_TIME);
     }
 }
 
@@ -203,7 +225,7 @@ where
     RS: DisplayHardwareLayer,
     R: DisplayHardwareLayer,
 {
-    fn receive(&self, mode: ReadMode) -> u8 {
+    fn receive(&mut self, mode: ReadMode) -> u8 {
         self.read.set_level(Level::High);
 
         match mode {
@@ -231,7 +253,7 @@ where
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    fn send_byte(&self, byte: u8) {
+    fn send_byte(&mut self, byte: u8) {
         T::delay_ns(T::ADDRESS_SETUP_TIME);
         self.enable.set_level(Level::High);
 
@@ -292,7 +314,7 @@ where
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    fn init(&self) {
+    fn init(&mut self) {
         // TODO maybe not needed because of pin state config
         self.data0.init();
         self.data1.init();
@@ -326,7 +348,7 @@ where
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    fn init(&self) {
+    fn init(&mut self) {
         self.data4.init();
         self.data5.init();
         self.data6.init();
@@ -344,7 +366,7 @@ where
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    fn send_byte(&self, byte: u8) {
+    fn send_byte(&mut self, byte: u8) {
         self.data.data4.set_direction(Direction::Out);
         self.data.data5.set_direction(Direction::Out);
         self.data.data6.set_direction(Direction::Out);
@@ -356,7 +378,7 @@ where
 }
 
 fn write_4bit<RS, R, E, T, P4, P5, P6, P7>(
-    pins: &ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
+    pins: &mut ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
     nibble: Nibble,
 ) where
     E: DisplayHardwareLayer,
@@ -366,11 +388,10 @@ fn write_4bit<RS, R, E, T, P4, P5, P6, P7>(
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    let value: u8 = nibble.into();
-
-    T::delay_ns(T::ADDRESS_SETUP_TIME);
     pins.enable.set_level(Level::High);
+    T::delay_ns(T::ADDRESS_SETUP_TIME);
 
+    let value: u8 = nibble.into();
     if value & 0x01 == 0x01 {
         pins.data.data4.set_level(Level::High);
     } else {
@@ -410,7 +431,7 @@ where
     P6: DisplayHardwareLayer,
     P7: DisplayHardwareLayer,
 {
-    fn receive_byte(&self) -> u8 {
+    fn receive_byte(&mut self) -> u8 {
         self.data.data4.set_direction(Direction::In);
         self.data.data5.set_direction(Direction::In);
         self.data.data6.set_direction(Direction::In);
@@ -427,7 +448,7 @@ where
 }
 
 fn read_single_nibble<RS, R, E, T, P4, P5, P6, P7>(
-    pins: &ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
+    pins: &mut ParallelConnection<RS, R, E, DataPins4Lines<P4, P5, P6, P7>, T>,
 ) -> u8
 where
     E: DisplayHardwareLayer,
