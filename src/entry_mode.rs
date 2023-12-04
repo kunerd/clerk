@@ -1,3 +1,5 @@
+use crate::WriteMode;
+
 bitflags! {
     struct EntryModeFlags: u8 {
         const ENTRY_MODE            = 0b0000_0100;
@@ -67,13 +69,13 @@ impl EntryModeBuilder {
         self
     }
 
-    pub(crate) fn build_command(&self) -> u8 {
+    pub(crate) fn build_command(&self) -> WriteMode {
         let mut cmd = EntryModeFlags::ENTRY_MODE;
 
         cmd |= EntryModeFlags::from(self.move_direction);
         cmd |= EntryModeFlags::from(self.display_shift);
 
-        cmd.bits()
+        WriteMode::Command(cmd.bits())
     }
 }
 

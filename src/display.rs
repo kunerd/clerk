@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::Delay;
+use crate::{Delay, DisplayState, CursorBlinking, CursorState};
 
 use super::address::{Address, Overflow};
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
@@ -25,8 +25,8 @@ bitflags! {
 
 bitflags! {
     struct ShiftDirection: u8 {
-        const RIGHT = 0b0000_0100;
         const LEFT  = 0b0000_0000;
+        const RIGHT = 0b0000_0100;
     }
 }
 
@@ -95,39 +95,44 @@ where
     P: Init + Send + Receive,
     U: Into<Address<RT>> + Home,
     RT: Overflow,
-    T: Delay
+    T: Delay,
 {
-    //const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
-    //const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
-    //const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x22);
-
-    pub fn init(&mut self, builder: &FunctionSetBuilder) {
-        let cmd = WriteMode::Command(builder.build_command());
-
+    pub fn init(&mut self, builder: &FunctionSetBuilder, entry_mode: &EntryModeBuilder) {
         self.connection.init(&mut self.delay);
-        self.init_by_instruction(cmd);
-    }
 
-    fn init_by_instruction(&mut self, function_set: WriteMode) {
+        let function_set = builder.build_command();
         self.connection.send(function_set, &mut self.delay);
+
+        let display_off = DisplayControlBuilder::default()
+            .set_cursor(CursorState::Off)
+            .set_cursor_blinking(CursorBlinking::On)
+            .set_display(DisplayState::Off)
+            .build_command();
+
+        self.connection.send(display_off, &mut self.delay);
+        self.clear();
+
+        // FIXME delay_ms would use u8 instead of u16
+        self.delay.delay_us(3_000);
+
+        self.connection.send(entry_mode.build_command(), &mut self.delay);
     }
 
     /// Sets the entry mode of the display.
     pub fn set_entry_mode(&mut self, builder: &EntryModeBuilder) {
-        let cmd = WriteMode::Command(builder.build_command());
+        let cmd = builder.build_command();
         self.connection.send(cmd, &mut self.delay);
     }
 
     /// Sets the display control settings.
     pub fn set_display_control(&mut self, builder: &DisplayControlBuilder) {
-        let cmd = WriteMode::Command(builder.build_command());
+        let cmd = builder.build_command();
         self.connection.send(cmd, &mut self.delay);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
     ///
     /// **Note:** Consider to use [seek()](struct.Display.html#method.seek) for longer distances.
-    #[cfg_attr(feature = "cargo-clippy", allow(expl_impl_clone_on_copy))]
     pub fn shift_cursor(&mut self, direction: ShiftTo) {
         let (offset, raw_direction) = direction.as_offset_and_raw_direction();
 
@@ -162,7 +167,8 @@ where
         cmd |= raw_direction.bits();
 
         for _ in 0..offset {
-            self.connection.send(WriteMode::Command(cmd), &mut self.delay);
+            self.connection
+                .send(WriteMode::Command(cmd), &mut self.delay);
         }
     }
 
@@ -172,7 +178,8 @@ where
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&mut self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
-        self.connection.send(WriteMode::Command(cmd), &mut self.delay);
+        self.connection
+            .send(WriteMode::Command(cmd), &mut self.delay);
     }
 
     /// Writes the given byte to data or character generator RAM, depending on the previous
@@ -252,7 +259,7 @@ impl<P, U, T> Display<P, U, DdRam, T>
 where
     P: Send,
     U: Into<Address<DdRam>> + Into<Address<CgRam>> + Home,
-    T: Delay
+    T: Delay,
 {
     const SEEK_DDRAM_CMD: u8 = 0b1000_0000;
 
@@ -270,7 +277,8 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.connection.send(WriteMode::Command(cmd), &mut self.delay);
+        self.connection
+            .send(WriteMode::Command(cmd), &mut self.delay);
     }
 
     /// Switches to the character generator RAM (CGRAM) and set the cursor's
@@ -303,7 +311,7 @@ impl<P, U, T> Display<P, U, CgRam, T>
 where
     P: Send,
     U: Into<Address<CgRam>> + Into<Address<DdRam>> + Home,
-    T: Delay
+    T: Delay,
 {
     const SEEK_CGRAM_CMD: u8 = 0b0100_0000;
 
@@ -320,7 +328,8 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.connection.send(WriteMode::Command(cmd),&mut self.delay);
+        self.connection
+            .send(WriteMode::Command(cmd), &mut self.delay);
     }
     /// Switches to the display data RAM (DDRAM) and set the cursor's address to
     /// the given value. After that all following instructions will operate on

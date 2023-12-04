@@ -1,3 +1,5 @@
+use crate::WriteMode;
+
 bitflags! {
     struct DisplayControlFlags: u8 {
         const DISPLAY_CONTROL       = 0b0000_1000;
@@ -92,14 +94,14 @@ impl DisplayControlBuilder {
         self
     }
 
-    pub(crate) fn build_command(&self) -> u8 {
+    pub(crate) fn build_command(&self) -> WriteMode {
         let mut cmd = DisplayControlFlags::DISPLAY_CONTROL;
 
         cmd |= DisplayControlFlags::from(self.display);
         cmd |= DisplayControlFlags::from(self.cursor);
         cmd |= DisplayControlFlags::from(self.blinking);
 
-        cmd.bits()
+        WriteMode::Command(cmd.bits())
     }
 }
 

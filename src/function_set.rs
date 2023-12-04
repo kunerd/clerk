@@ -1,3 +1,5 @@
+use crate::WriteMode;
+
 bitflags! {
     struct FunctionSetFlags: u8 {
         const FUNCTION_SET                  = 0b0010_0000;
@@ -83,14 +85,14 @@ impl FunctionSetBuilder {
         self
     }
 
-    pub(crate) fn build_command(&self) -> u8 {
+    pub(crate) fn build_command(&self) -> WriteMode {
         let mut cmd = FunctionSetFlags::FUNCTION_SET;
 
         cmd |= FunctionSetFlags::from(self.data_length);
         cmd |= FunctionSetFlags::from(self.line_number);
         cmd |= FunctionSetFlags::from(self.character_font);
 
-        cmd.bits()
+        WriteMode::Command(cmd.bits())
     }
 }
 

@@ -105,7 +105,7 @@ pub trait Delay {
     const DATA_HOLD_TIME: u8 = 0;
 
     /// The maximum execution time of instruction commands.
-    const COMMAND_EXECUTION_TIME: u16 = 500;
+    const COMMAND_EXECUTION_TIME: u16 = 40;
 
     /// Wait for the given amount of nanoseconds.
     fn delay_ns(&mut self, _ns: u8) {}
@@ -129,7 +129,7 @@ impl<RS, R, E, D> Pins<RS, R, E, D> {
     /// with the LCD device.
     ///
     /// [`ParallelConnection`]: struct.ParallelConnection.html
-    pub fn into_connection<T>(self) -> ParallelConnection<RS, R, E, D> {
+    pub fn into_connection(self) -> ParallelConnection<RS, R, E, D> {
         ParallelConnection {
             register_select: self.register_select,
             read: self.read,
@@ -165,15 +165,12 @@ where
 {
     fn init<D: Delay>(&mut self, delay: &mut D) {
         self.register_select.init();
-        self.register_select.set_direction(Direction::Out);
-
         self.read.init();
-        self.read.set_direction(Direction::Out);
-
         self.enable.init();
-        self.enable.set_direction(Direction::Out);
 
-        self.data.init(delay);
+        self.register_select.set_direction(Direction::Out);
+        self.read.set_direction(Direction::Out);
+        self.enable.set_direction(Direction::Out);
 
         self.register_select.set_level(Level::Low);
         self.read.set_level(Level::Low);
@@ -204,6 +201,7 @@ where
         self.register_select.set_level(level);
 
         self.send_byte(value, delay);
+
 
         delay.delay_us(T::COMMAND_EXECUTION_TIME);
     }
