@@ -1,5 +1,7 @@
 use core::marker::PhantomData;
 
+use crate::Delay;
+
 use super::address::{Address, Overflow};
 use super::{DisplayControlBuilder, EntryModeBuilder, FunctionSetBuilder, Home};
 use hal::{Init, ReadMode, Receive, Send, WriteMode};
@@ -55,69 +57,71 @@ impl ShiftTo {
     }
 }
 
-pub type DdRamDisplay<P, U> = Display<P, U, DdRam>;
+pub type DdRamDisplay<P, U, T> = Display<P, U, DdRam, T>;
 
 /// A HD44780 compliant display.
 ///
 /// It provides a high-level and hardware agnostic interface to controll a HD44780 compliant
 /// liquid crystal display (LCD).
-pub struct Display<P, U, RT>
+pub struct Display<P, U, RT, T>
 where
     U: Into<Address<RT>> + Home,
 {
     connection: P,
     cursor_address: Address<RT>,
+    delay: T,
     _ram_type: PhantomData<RT>,
     _line_marker: PhantomData<U>,
 }
 
-impl<P, U> Display<P, U, DdRam>
+impl<P, U, T> Display<P, U, DdRam, T>
 where
     U: Into<Address<DdRam>> + Home,
 {
     /// Create a new `Display` using the given connection.
-    pub fn new(connection: P) -> Display<P, U, DdRam> {
+    pub fn new(connection: P, delay: T) -> Display<P, U, DdRam, T> {
         Display {
-            connection: connection,
+            connection,
             cursor_address: Address::from(0),
+            delay,
             _ram_type: PhantomData::<DdRam>,
             _line_marker: PhantomData,
         }
     }
 }
 
-impl<P, U, RT> Display<P, U, RT>
+impl<P, U, RT, T> Display<P, U, RT, T>
 where
     P: Init + Send + Receive,
     U: Into<Address<RT>> + Home,
     RT: Overflow,
+    T: Delay
 {
     //const FIRST_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x33);
     //const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x32);
     //const SECOND_4BIT_INIT_INSTRUCTION: WriteMode = WriteMode::Command(0x22);
 
     pub fn init(&mut self, builder: &FunctionSetBuilder) {
-        let cmd = builder.build_command();
-        let cmd = WriteMode::Command(cmd);
+        let cmd = WriteMode::Command(builder.build_command());
 
-        self.connection.init();
+        self.connection.init(&mut self.delay);
         self.init_by_instruction(cmd);
     }
 
     fn init_by_instruction(&mut self, function_set: WriteMode) {
-        self.connection.send(function_set);
+        self.connection.send(function_set, &mut self.delay);
     }
 
     /// Sets the entry mode of the display.
     pub fn set_entry_mode(&mut self, builder: &EntryModeBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.connection.send(cmd);
+        self.connection.send(cmd, &mut self.delay);
     }
 
     /// Sets the display control settings.
     pub fn set_display_control(&mut self, builder: &DisplayControlBuilder) {
         let cmd = WriteMode::Command(builder.build_command());
-        self.connection.send(cmd);
+        self.connection.send(cmd, &mut self.delay);
     }
 
     /// Shifts the cursor to the left or the right by the given offset.
@@ -158,7 +162,7 @@ where
         cmd |= raw_direction.bits();
 
         for _ in 0..offset {
-            self.connection.send(WriteMode::Command(cmd));
+            self.connection.send(WriteMode::Command(cmd), &mut self.delay);
         }
     }
 
@@ -168,25 +172,25 @@ where
     /// It also sets the cursor's move direction to `Increment`.
     pub fn clear(&mut self) {
         let cmd = Instructions::CLEAR_DISPLAY.bits();
-        self.connection.send(WriteMode::Command(cmd));
+        self.connection.send(WriteMode::Command(cmd), &mut self.delay);
     }
 
     /// Writes the given byte to data or character generator RAM, depending on the previous
     /// seek operation.
     pub fn write(&mut self, c: u8) {
         self.cursor_address += Address::from(1);
-        self.connection.send(WriteMode::Data(c));
+        self.connection.send(WriteMode::Data(c), &mut self.delay);
     }
 
     /// Reads a single byte from data RAM.
     pub fn read_byte(&mut self) -> u8 {
         self.cursor_address += Address::from(1);
-        self.connection.receive(ReadMode::Data)
+        self.connection.receive(ReadMode::Data, &mut self.delay)
     }
 
     /// Reads busy flag and the cursor's current address.
     pub fn read_busy_flag(&mut self) -> (bool, u8) {
-        let byte = self.connection.receive(ReadMode::BusyFlag);
+        let byte = self.connection.receive(ReadMode::BusyFlag, &mut self.delay);
 
         let busy_flag = (byte & 0b1000_0000) != 0;
 
@@ -244,10 +248,11 @@ where
     }
 }
 
-impl<P, U> Display<P, U, DdRam>
+impl<P, U, T> Display<P, U, DdRam, T>
 where
     P: Send,
     U: Into<Address<DdRam>> + Into<Address<CgRam>> + Home,
+    T: Delay
 {
     const SEEK_DDRAM_CMD: u8 = 0b1000_0000;
 
@@ -265,16 +270,17 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.connection.send(WriteMode::Command(cmd));
+        self.connection.send(WriteMode::Command(cmd), &mut self.delay);
     }
 
     /// Switches to the character generator RAM (CGRAM) and set the cursor's
     /// address to the given value. After that all following instructions will
     /// operate on this RAM type until it is switched back to display data RAM.
-    pub fn set_cgram_address(self, address: u8) -> Display<P, U, CgRam> {
+    pub fn set_cgram_address(self, address: u8) -> Display<P, U, CgRam, T> {
         let mut cgram_display = Display {
             connection: self.connection,
             cursor_address: Address::<CgRam>::from(0),
+            delay: self.delay,
             _ram_type: PhantomData::<CgRam>,
             _line_marker: PhantomData,
         };
@@ -293,10 +299,11 @@ pub enum SeekCgRamFrom {
     Current(u8),
 }
 
-impl<P, U> Display<P, U, CgRam>
+impl<P, U, T> Display<P, U, CgRam, T>
 where
     P: Send,
     U: Into<Address<CgRam>> + Into<Address<DdRam>> + Home,
+    T: Delay
 {
     const SEEK_CGRAM_CMD: u8 = 0b0100_0000;
 
@@ -313,16 +320,16 @@ where
 
         cmd |= u8::from(self.cursor_address);
 
-        self.connection.send(WriteMode::Command(cmd));
+        self.connection.send(WriteMode::Command(cmd),&mut self.delay);
     }
-
     /// Switches to the display data RAM (DDRAM) and set the cursor's address to
     /// the given value. After that all following instructions will operate on
     /// this RAM type until it is switched back to character generator RAM.
-    pub fn set_ddram_address(self, pos: SetFrom<U>) -> Display<P, U, DdRam> {
+    pub fn set_ddram_address(self, pos: SetFrom<U>) -> Display<P, U, DdRam, T> {
         let mut ddram_display = Display {
             connection: self.connection,
             cursor_address: Address::from(0),
+            delay: self.delay,
             _ram_type: PhantomData::<DdRam>,
             _line_marker: PhantomData,
         };

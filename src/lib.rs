@@ -18,7 +18,7 @@ mod address;
 
 pub use lines::{DefaultLines, Home};
 pub use display_control::{CursorBlinking, CursorState, DisplayControlBuilder, DisplayState};
-pub use entry_mode::EntryModeBuilder;
+pub use entry_mode::{EntryModeBuilder, DisplayShift, MoveDirection};
 pub use function_set::{FunctionSetBuilder, LineNumber};
 pub use display::{DdRamDisplay as Display, SeekCgRamFrom, SeekFrom, SetFrom, ShiftTo};
 pub use hal::{DataPins4Lines, DataPins8Lines, Delay, Direction, DisplayHardwareLayer, Init, Level,
